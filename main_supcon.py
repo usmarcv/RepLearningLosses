@@ -27,7 +27,8 @@ except ImportError:
 
 
 def parse_option():
-    parser = argparse.ArgumentParser('argument for training')
+
+    parser = argparse.ArgumentParser('Arguments for training...')
 
     parser.add_argument('--print_freq', type=int, default=10,
                         help='print frequency')
@@ -43,25 +44,21 @@ def parse_option():
     # optimization
     parser.add_argument('--learning_rate', type=float, default=0.05,
                         help='learning rate')
-    
     parser.add_argument('--lr_decay_epochs', type=str, default='700,800,900',
                         help='where to decay lr, can be a list')
-    
     parser.add_argument('--lr_decay_rate', type=float, default=0.1,
                         help='decay rate for learning rate')
-    
     parser.add_argument('--weight_decay', type=float, default=1e-4,
                         help='weight decay')
-    
     parser.add_argument('--momentum', type=float, default=0.9,
                         help='momentum')
 
     # model dataset
-    parser.add_argument('--model', type=str, default='resnet50', choices=['resnet18', 'resnet50', 'resnet101'], help='choose model')
+    parser.add_argument('--model', type=str, default='resnet50', choices=['resnet18', 'resnet50', 'resnet101'], 
+                        help='Choose your backbone')
     parser.add_argument('--dataset', type=str, default='cifar10',
-                        choices=['cifar10', 'cifar100', 'imagenet100', 'imagenet', 'cifar2',
-                                 'aircraft', 'cars', 'path'], help='dataset')
-    
+                        choices=['cifar10', 'cifar100', 'imagenet100', 'imagenet', 'cifar2', 'aircraft', 'cars', 'path'], 
+                        help='dataset')
     parser.add_argument('--valid_split', type=float, default=0,
                         help="proportion of train data to use for validation set")
     parser.add_argument('--mean', type=str,
@@ -74,19 +71,19 @@ def parse_option():
                         help='size of images after resizing')
     
     # data augmentation
-    parser.add_argument('--crop_size', type=int, default=320, help='parameter for RandomResizedCrop')
-    parser.add_argument('--crop_scale', type=str, help='crop scale for RandomResizedCrop in form of str tuple')
-    parser.add_argument('--crop_ratio', type=str, help='crop ratio for RandomResizedCrop in form of str tuple')
-    parser.add_argument('--degrees', type=int, help='limit for degrees used in random rotation augmentation')
+    # parser.add_argument('--crop_size', type=int, default=320, help='parameter for RandomResizedCrop')
+    # parser.add_argument('--crop_scale', type=str, help='crop scale for RandomResizedCrop in form of str tuple')
+    # parser.add_argument('--crop_ratio', type=str, help='crop ratio for RandomResizedCrop in form of str tuple')
+    # parser.add_argument('--degrees', type=int, help='limit for degrees used in random rotation augmentation')
 
     # method
-    parser.add_argument('--method', type=str, default='SupCon',
-                        choices=['SINCERE', 'SupCon', 'SimCLR', 'EpsSupInfoNCE'],
-                        help='choose method')
+    parser.add_argument('--method', type=str, default='SINCERE',
+                        choices=['SINCERE', 'SupCon', 'EpsSupInfoNCE', 'SimCLR', 'InfoNCE'],
+                        help='Choose your contrastive method')
 
     # temperature
     parser.add_argument('--temp', type=float, default=0.07,
-                        help='temperature for loss function')
+                        help='Temperature for loss function')
 
     # other setting
     parser.add_argument('--cosine', action='store_true',
@@ -107,6 +104,7 @@ def parse_option():
         assert opt.std is not None
 
     # set the path according to the environment
+    # [REVISAR...]talvez a gente nem precise desse trecho abaixo...
     if opt.data_folder is None:
         if opt.dataset == 'imagenet100':
             opt.data_folder = '/cluster/tufts/hugheslab/datasets/ImageNet100/train/'
@@ -114,6 +112,7 @@ def parse_option():
             opt.data_folder = '/cluster/tufts/hugheslab/datasets/ImageNet/train/'
         else:
             opt.data_folder = './datasets/'
+
     opt.model_path = './save/SupCon/{}_models'.format(opt.dataset)
     opt.tb_path = './save/SupCon/{}_tensorboard'.format(opt.dataset)
 
@@ -142,6 +141,7 @@ def parse_option():
                 1 + math.cos(math.pi * opt.warm_epochs / opt.epochs)) / 2
         else:
             opt.warmup_to = opt.learning_rate
+
     # add time to model name
     opt.model_name += "_" + time.strftime("%Y_%m_%d-%H_%M_%S")
 
@@ -151,16 +151,40 @@ def parse_option():
     opt.save_folder = os.path.join(opt.model_path, opt.model_name)
     os.makedirs(opt.save_folder, exist_ok=True)
 
-    # write args to log
+    # Priting arguments for logging
+    print("\n[INFO] Printing arguments for pre-training stage...")
+    print("\n[INFO] Training with gpu: ".format(torch.cuda.get_device_name()))
     print(opt)
     return opt
 
 
 def set_model(opt):
-    model = SupConResNet(name=opt.model)
-    # enable synchronized Batch Normalization
-    if opt.syncBN:
-        model = apex.parallel.convert_syncbn_model(model)
+    """Set the model for training
+
+    Args:
+        opt (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """    
+    #Set the model
+    model = SupConResNet(name=opt.model) 
+    #Set criterion 
+    if opt.method == 'SINCERE':
+        # original implementation does not set base_temperature, but setting here to make
+        # hyperparameters comparable between implementations
+        criterion = MultiviewSINCERELoss(temperature=opt.temp)
+    elif opt.method == 'SupCon':
+        criterion = SupConLoss(temperature=opt.temp)
+    elif opt.method == 'EpsSupInfoNCE':
+        criterion = MultiviewEpsSupInfoNCELoss(temperature=opt.temp)
+    elif opt.method == 'SimCLR':
+        criterion = SupConLoss(temperature=opt.temp)
+    elif opt.method == 'InfoNCE':
+        criterion = SupConLoss(temperature=opt.temp) #Revisar...
+    else:
+        raise ValueError('[INFO] Contrastive method not supported on setting model: {}'.
+                         format(opt.method))
 
     if torch.cuda.is_available():
         if "device" not in opt:
@@ -170,26 +194,23 @@ def set_model(opt):
         if torch.cuda.device_count() > 1:
             model.encoder = torch.nn.parallel.DistributedDataParallel(model.encoder)
         cudnn.benchmark = True
-    return model
+
+    return model, criterion
 
 
-def train(train_loader, model, optimizer, epoch, opt, logger):
+def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
     """one epoch training"""
-    sincere_loss_func = MultiviewSINCERELoss(temperature=opt.temp) \
-        if opt.method != 'EpsSupInfoNCE' else MultiviewEpsSupInfoNCELoss(temperature=opt.temp)
-    # original implementation does not set base_temperature, but setting here to make
-    # hyperparameters comparable between implementations
-    supcon_loss_func = SupConLoss(temperature=opt.temp, base_temperature=opt.temp)
+
+    #Set model to train mode
     model.train()
 
     av_batch_time = AverageMeter()
     av_data_time = AverageMeter()
-    av_sincere = AverageMeter()
-    av_supcon = AverageMeter()
     av_acc = AverageMeter()
-    av_simclr = AverageMeter()
+    av_losses = AverageMeter()
 
     end = time.time()
+
     # change reshuffle split of data across GPUs
     if "device" in opt:
         train_loader.sampler.set_epoch(epoch)
@@ -213,35 +234,30 @@ def train(train_loader, model, optimizer, epoch, opt, logger):
         with torch.set_grad_enabled(True):
             flat_embeds = model(images)
         # reshape from (2B, D) to (B, 2, D)
-        embeds = torch.cat(
-            [aug.unsqueeze(1) for aug in torch.split(flat_embeds, [bsz, bsz], dim=0)], dim=1)
+        embeds = torch.cat([aug.unsqueeze(1) for aug in torch.split(flat_embeds, [bsz, bsz], dim=0)], dim=1)
         # compute losses
         # loss is averaged across GPU-specific batches if using multiple GPUs, as in SupCon
         # see MoCo v3 for full batch size parallelization with torch's all_gather
-        sincere_loss = sincere_loss_func(embeds, labels)
-        supcon_loss = supcon_loss_func(embeds, labels)
-        simclr_loss = supcon_loss_func(embeds)
-        # update averages
-        av_sincere.update(sincere_loss.item(), bsz)
-        av_supcon.update(supcon_loss.item(), bsz)
-        av_simclr.update(simclr_loss.item(), bsz)
-        # SGD
-        # always zero in case grad accidentally calculated for non-train epoch
-        optimizer.zero_grad()
-        if opt.method == 'SINCERE' or opt.method == 'EpsSupInfoNCE':
-            sincere_loss.backward()
-        elif opt.method == 'SupCon':
-            supcon_loss.backward()
-        elif opt.method == 'SimCLR':
-            simclr_loss.backward()
+        if opt.method == 'SINCERE' or opt.method == 'EpsSupInfoNCE' or opt.method == 'SupCon': #Supervised contrastive learning methods
+            loss = criterion(embeds, labels)
+        elif opt.method == 'SimCLR' or opt.method == 'InfoNCE': #Self-supervised contrastive learning methods
+            loss = criterion(embeds)
         else:
-            raise ValueError('contrastive method not supported: {}'.
+            raise ValueError('[INFO] Contrastive method not supported in training phase: {}'.
                              format(opt.method))
+
+        av_losses.update(loss.item(), bsz)
+        optimizer.zero_grad()
+        loss.backward()
         optimizer.step()
+
         # compute accuracy
         with torch.no_grad():
-            acc = contrastive_acc(embeds, labels)
-            av_acc.update(acc.item(), bsz)
+            if opt.method == 'SimCLR' or opt.method == 'InfoNCE':
+                acc = contrastive_acc(embeds)
+            else:
+                acc = contrastive_acc(embeds, labels)
+                av_acc.update(acc.item(), bsz)
 
         # measure elapsed time
         av_batch_time.update(time.time() - end)
@@ -249,7 +265,7 @@ def train(train_loader, model, optimizer, epoch, opt, logger):
 
         # print info
         if (idx + 1) % opt.print_freq == 0:
-            print('Epoch: [{0}][{1}/{2}]\t'
+            print('[Train] Epoch: [{0}][{1}/{2}]\t'
                   'BT {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   'DT {data_time.val:.3f} ({data_time.avg:.3f})\t'.format(
                     epoch, idx + 1, len(train_loader), batch_time=av_batch_time,
@@ -259,10 +275,9 @@ def train(train_loader, model, optimizer, epoch, opt, logger):
     # tensorboard logger
     if "device" not in opt or opt.device == 0:
         log_folder = "train/"
-        logger.add_scalar(f"{log_folder}SINCERE", av_sincere.avg, epoch)
-        logger.add_scalar(f"{log_folder}SupCon", av_supcon.avg, epoch)
-        logger.add_scalar(f"{log_folder}SimCLR", av_simclr.avg, epoch)
-        logger.add_scalar(f"{log_folder}Accuracy", av_acc.avg, epoch)
+        logger.add_scalar(f"{log_folder}{str(opt.method)} loss", av_losses.avg, epoch)
+        logger.add_scalar(f"{log_folder}Accuracy: ", av_acc.avg, epoch)
+        
     # log values independent of forward passes
     logger.add_scalar("learning_rate", optimizer.param_groups[0]["lr"], epoch)
     return
@@ -386,7 +401,7 @@ def valid(train_loader, valid_loader, model, epoch, opt, logger):
 
 def test(model, opt):
     train_loader, _, test_loader = set_loader(opt, contrast_trans=True, for_test=True)
-    valid(train_loader, test_loader, model, 0, opt, None)
+    #valid(train_loader, test_loader, model, 0, opt, None)
 
 
 def main(opt):
@@ -394,7 +409,7 @@ def main(opt):
     train_loader, valid_loader, _ = set_loader(opt, contrast_trans=True)
 
     # build model
-    model = set_model(opt)
+    model, criterion = set_model(opt)
 
     # build optimizer
     optimizer = set_optimizer(opt, model)
@@ -409,8 +424,9 @@ def main(opt):
 
         # train for one epoch
         time1 = time.time()
-        train(train_loader, model, optimizer, epoch, opt, logger)
+        train(train_loader, model, criterion, optimizer, epoch, opt, logger)
         time2 = time.time()
+        #[TODO] Talvez precisamos voltar aqui para validar melhor essa parte da loss
         # use valid_loader if present
         if epoch % 5 == 0 and valid_loader is not None:
             valid(train_loader, valid_loader, model, epoch, opt, logger)
