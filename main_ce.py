@@ -164,7 +164,7 @@ def set_loader(opt, contrast_trans=False, for_test=False):
         mean = eval(opt.mean)
         std = eval(opt.std)
     else:
-        raise ValueError('dataset not supported: {}'.format(opt.dataset))
+        raise ValueError('Dataset not supported: {}'.format(opt.dataset))
     normalize = transforms.Normalize(mean=mean, std=std)
 
     # contrastive data transforms
