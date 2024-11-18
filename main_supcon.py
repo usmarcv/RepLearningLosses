@@ -16,7 +16,7 @@ from util import AverageMeter
 from util import adjust_learning_rate, warmup_learning_rate, set_optimizer, save_model
 from networks.resnet_big import SupConResNet
 from losses import SupConLoss
-from revised_losses import MultiviewSINCERELoss, MultiviewEpsSupInfoNCELoss
+from revised_losses import MultiviewSINCERELoss, MultiviewEpsSupInfoNCELoss, InfoNCELoss
 
 
 try:
@@ -185,7 +185,7 @@ def set_model(opt):
     elif opt.method == 'SimCLR':
         criterion = SupConLoss(temperature=opt.temp)
     elif opt.method == 'InfoNCE':
-        criterion = SupConLoss(temperature=opt.temp) #Revisar...
+        criterion = InfoNCELoss(temperature=opt.temp) #Revisar...
     else:
         raise ValueError('[INFO] Contrastive method not supported on setting model: {}'.
                          format(opt.method))
