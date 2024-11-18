@@ -204,6 +204,7 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
     #Set model to train mode
     model.train()
 
+    #Set average meters
     av_batch_time = AverageMeter()
     av_data_time = AverageMeter()
     av_acc = AverageMeter()
@@ -211,7 +212,7 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
 
     end = time.time()
 
-    # change reshuffle split of data across GPUs
+    # Change reshuffle split of data across GPUs
     if "device" in opt:
         train_loader.sampler.set_epoch(epoch)
     for idx, (image_aug_tuple, labels) in enumerate(train_loader):
@@ -254,7 +255,7 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
         # compute accuracy
         with torch.no_grad():
             if opt.method == 'SimCLR' or opt.method == 'InfoNCE':
-                acc = contrastive_acc(embeds)
+                continue; #No need to compute accuracy for self-supervised methods
             else:
                 acc = contrastive_acc(embeds, labels)
                 av_acc.update(acc.item(), bsz)
@@ -267,36 +268,34 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
         if (idx + 1) % opt.print_freq == 0:
             print('[Train] Epoch: [{0}][{1}/{2}]\t'
                   'BT {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'DT {data_time.val:.3f} ({data_time.avg:.3f})\t'.format(
+                  'DT {data_time.val:.3f} ({data_time.avg:.3f})\t'
+                  'Loss {loss.val:.3f} ({loss.avg:.3f})'.format(
                     epoch, idx + 1, len(train_loader), batch_time=av_batch_time,
-                    data_time=av_data_time))
+                    data_time=av_data_time, loss=av_losses))
             sys.stdout.flush()
 
-    # tensorboard logger
+    # tensorboard logger to save accuracy and loss
     if "device" not in opt or opt.device == 0:
         log_folder = "train/"
         logger.add_scalar(f"{log_folder}{str(opt.method)} loss", av_losses.avg, epoch)
-        logger.add_scalar(f"{log_folder}Accuracy: ", av_acc.avg, epoch)
+        logger.add_scalar(f"{log_folder}Accuracy {str(opt.method)}: ", av_acc.avg, epoch)
         
     # log values independent of forward passes
     logger.add_scalar("learning_rate", optimizer.param_groups[0]["lr"], epoch)
-    return
+
+    return 
 
 
 def valid(train_loader, valid_loader, model, epoch, opt, logger):
     """validation"""
     # loggger is given if valid_loader is validation set, otherwise is test set
     val_is_test = logger is None
-
-    sincere_loss_func = MultiviewSINCERELoss(temperature=opt.temp) \
-        if opt.method != 'EpsSupInfoNCE' else MultiviewEpsSupInfoNCELoss(temperature=opt.temp)
-    # original implementation does not set base_temperature, but setting here to make
-    # hyperparameters comparable between implementations
-    supcon_loss_func = SupConLoss(temperature=opt.temp, base_temperature=opt.temp)
-
+    model, criterion = set_model(opt)
+    
     # caches for data
     train_embeds = torch.empty((0, 128))
     train_labels = torch.empty((0,))
+
     # caches for test data
     if val_is_test:
         test_embeds = torch.empty((0, 128))
@@ -308,9 +307,7 @@ def valid(train_loader, valid_loader, model, epoch, opt, logger):
 
         av_batch_time = AverageMeter()
         av_data_time = AverageMeter()
-        av_sincere = AverageMeter()
-        av_supcon = AverageMeter()
-        av_simclr = AverageMeter()
+        av_losses = AverageMeter()
         av_acc_top_1 = AverageMeter()
         av_acc_top_5 = AverageMeter()
 
@@ -353,16 +350,20 @@ def valid(train_loader, valid_loader, model, epoch, opt, logger):
                 av_acc_top_5.update(test_contrastive_acc_knn(
                     train_embeds.cuda(), embeds[:, 0].cuda(),
                     train_labels.cuda(), labels.cuda(), 5).item(), bsz)
+        
             # compute losses (note there's no class balancing sampler for test)
             # loss is averaged across GPU-specific batches if using multiple GPUs, as in SupCon
-            # see MoCo v3 for full batch size parallelization with torch's all_gather
-            sincere_loss = sincere_loss_func(embeds, labels)
-            supcon_loss = supcon_loss_func(embeds, labels)
-            simclr_loss = supcon_loss_func(embeds)
+            # see MoCo v3 for full batch size parallelization with torch's all_gather 
+            if opt.method == 'SINCERE' or opt.method == 'EpsSupInfoNCE' or opt.method == 'SupCon': #Supervised contrastive learning methods
+                loss = criterion(embeds, labels)
+            elif opt.method == 'SimCLR' or opt.method == 'InfoNCE': #Self-supervised contrastive learning methods
+                loss = criterion(embeds)
+            else:
+                raise ValueError('[INFO] Contrastive method not supported in training [valid] phase: {}'.
+                             format(opt.method))
+            
             # update averages
-            av_sincere.update(sincere_loss.item(), bsz)
-            av_supcon.update(supcon_loss.item(), bsz)
-            av_simclr.update(simclr_loss.item(), bsz)
+            av_losses.update(loss.item(), bsz)
 
             # measure elapsed time
             av_batch_time.update(time.time() - end)
@@ -370,26 +371,23 @@ def valid(train_loader, valid_loader, model, epoch, opt, logger):
 
             # print info
             if (idx + 1) % opt.print_freq == 0:
-                print('Epoch: [{0}][{1}/{2}]\t'
+                print('[Train - valid] Epoch: [{0}][{1}/{2}]\t'
                       'BT {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                       'DT {data_time.val:.3f} ({data_time.avg:.3f})\t'.format(
                         epoch, idx + 1, len(loader), batch_time=av_batch_time,
                         data_time=av_data_time))
                 sys.stdout.flush()
+
     if "device" not in opt or opt.device == 0 and not is_train:
         # tensorboard logger
         if not val_is_test:
             log_folder = "valid/"
-            logger.add_scalar(f"{log_folder}SINCERE", av_sincere.avg, epoch)
-            logger.add_scalar(f"{log_folder}SupCon", av_supcon.avg, epoch)
-            logger.add_scalar(f"{log_folder}SimCLR", av_simclr.avg, epoch)
+            logger.add_scalar(f"{log_folder}{str(opt.method)} loss", av_losses.avg, epoch)
             logger.add_scalar(f"{log_folder}Top 1 Accuracy", av_acc_top_1.avg, epoch)
             logger.add_scalar(f"{log_folder}Top 5 Accuracy", av_acc_top_5.avg, epoch)
         else:
             # print output
-            print(f"Test SINCERE: {av_sincere.avg}")
-            print(f"Test SupCon: {av_supcon.avg}")
-            print(f"Test SimCLR: {av_simclr.avg}")
+            print(f"Test {str(opt.method)} Loss: {av_losses.avg}")
             print(f"Test Top 1 Accuracy: {av_acc_top_1.avg}")
             print(f"Test Top 5 Accuracy: {av_acc_top_5.avg}")
             # save caches
@@ -401,7 +399,7 @@ def valid(train_loader, valid_loader, model, epoch, opt, logger):
 
 def test(model, opt):
     train_loader, _, test_loader = set_loader(opt, contrast_trans=True, for_test=True)
-    #valid(train_loader, test_loader, model, 0, opt, None)
+    valid(train_loader, test_loader, model, 0, opt, logger=None)
 
 
 def main(opt):
