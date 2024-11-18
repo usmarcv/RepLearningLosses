@@ -153,8 +153,10 @@ def parse_option():
 
     # Priting arguments for logging
     print("\n[INFO] Printing arguments for pre-training stage...")
-    print("\n[INFO] Training with gpu: ".format(torch.cuda.get_device_name()))
     print(opt)
+    
+    print("\n[INFO] Training with gpu: {}".format(torch.cuda.get_device_name()))
+
     return opt
 
 
@@ -167,6 +169,8 @@ def set_model(opt):
     Returns:
         _type_: _description_
     """    
+    print('\n[INFO] Setting model and criterion...')
+
     #Set the model
     model = SupConResNet(name=opt.model) 
     #Set criterion 
@@ -200,6 +204,7 @@ def set_model(opt):
 
 def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
     """one epoch training"""
+    print('\n[INFO] Training model...')
 
     #Set model to train mode
     model.train()
@@ -255,7 +260,7 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
         # compute accuracy
         with torch.no_grad():
             if opt.method == 'SimCLR' or opt.method == 'InfoNCE':
-                continue; #No need to compute accuracy for self-supervised methods
+                pass #No need to compute accuracy for self-supervised methods
             else:
                 acc = contrastive_acc(embeds, labels)
                 av_acc.update(acc.item(), bsz)
@@ -286,10 +291,10 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
     return 
 
 
-def valid(train_loader, valid_loader, model, epoch, opt, logger):
+def valid(train_loader, valid_loader, epoch, opt, logger):
     """validation"""
     # loggger is given if valid_loader is validation set, otherwise is test set
-    val_is_test = logger is None
+    val_is_test = logger is not None
     model, criterion = set_model(opt)
     
     # caches for data
@@ -373,9 +378,10 @@ def valid(train_loader, valid_loader, model, epoch, opt, logger):
             if (idx + 1) % opt.print_freq == 0:
                 print('[Train - valid] Epoch: [{0}][{1}/{2}]\t'
                       'BT {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                      'DT {data_time.val:.3f} ({data_time.avg:.3f})\t'.format(
-                        epoch, idx + 1, len(loader), batch_time=av_batch_time,
-                        data_time=av_data_time))
+                      'DT {data_time.val:.3f} ({data_time.avg:.3f})\t'
+                      'Loss {loss.val:.3f} ({loss.avg:.3f})'.format(
+                        epoch, idx + 1, len(train_loader), batch_time=av_batch_time,
+                        data_time=av_data_time, loss=av_losses))
                 sys.stdout.flush()
 
     if "device" not in opt or opt.device == 0 and not is_train:
@@ -399,7 +405,7 @@ def valid(train_loader, valid_loader, model, epoch, opt, logger):
 
 def test(model, opt):
     train_loader, _, test_loader = set_loader(opt, contrast_trans=True, for_test=True)
-    valid(train_loader, test_loader, model, 0, opt, logger=None)
+    valid(train_loader, test_loader, 0, opt, logger=None)
 
 
 def main(opt):
@@ -427,7 +433,7 @@ def main(opt):
         #[TODO] Talvez precisamos voltar aqui para validar melhor essa parte da loss
         # use valid_loader if present
         if epoch % 5 == 0 and valid_loader is not None:
-            valid(train_loader, valid_loader, model, epoch, opt, logger)
+            valid(train_loader, valid_loader, epoch, opt, logger)
         print('epoch {}, total time {:.2f}'.format(epoch, time2 - time1))
 
         # checkpoint
