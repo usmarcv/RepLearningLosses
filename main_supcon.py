@@ -294,7 +294,7 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
 def valid(train_loader, valid_loader, epoch, opt, logger):
     """validation"""
     # loggger is given if valid_loader is validation set, otherwise is test set
-    val_is_test = logger is not None
+    val_is_test = logger is None
     model, criterion = set_model(opt)
     
     # caches for data
