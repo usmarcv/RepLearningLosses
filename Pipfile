@@ -1,0 +1,25 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+torch = "*"
+torchvision = "*"
+pep8-naming = "*"
+autopep8 = "*"
+tensorboard-logger = "*"
+matplotlib = "*"
+numpy = "*"
+pandas = "*"
+scikit-learn = "*"
+tensorboard = "*"
+seaborn = "*"
+pytest = "*"
+tensorflow = "*"
+
+[dev-packages]
+torch-tb-profiler = "*"
+
+[requires]
+python_version = "3.12"
