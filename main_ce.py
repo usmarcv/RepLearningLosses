@@ -21,7 +21,8 @@ from networks.resnet_big import SupCEResNet
 
 
 def parse_option():
-    parser = argparse.ArgumentParser('argument for training')
+
+    parser = argparse.ArgumentParser('Arguments for training...')
 
     parser.add_argument('--print_freq', type=int, default=10,
                         help='print frequency')
@@ -129,6 +130,9 @@ def parse_option():
 
 
 def set_loader(opt, contrast_trans=False, for_test=False):
+    
+    print("[INFO] Preparing data loaders and transforms...")
+    
     # dataset specific normalization
     if opt.dataset == 'cifar10':
         mean = (0.4914, 0.4822, 0.4465)
@@ -370,6 +374,7 @@ def set_loader(opt, contrast_trans=False, for_test=False):
 
 
 def set_model(opt):
+    print('\n[INFO] Setting model and criterion (Cross-Entropy)...')
     model = SupCEResNet(name=opt.model, num_classes=opt.n_cls)
     criterion = torch.nn.CrossEntropyLoss()
 
@@ -476,11 +481,12 @@ def validate(val_loader, model, criterion, opt):
 
 
 def main():
+
     best_acc = 0
     opt = parse_option()
 
     # build data loader
-    train_loader, val_loader = set_loader(opt)
+    train_loader, _, val_loader = set_loader(opt, contrast_trans=False, for_test=False) #we change the call of val_loader to set_loader
 
     # build model and criterion
     model, criterion = set_model(opt)
@@ -492,6 +498,7 @@ def main():
     logger = tb_logger.Logger(logdir=opt.tb_folder, flush_secs=2)
 
     # training routine
+    print('\n[INFO] Training model with Cross-Entropy loss...')
     for epoch in range(1, opt.epochs + 1):
         adjust_learning_rate(opt, optimizer, epoch)
 
@@ -505,8 +512,7 @@ def main():
         # tensorboard logger
         logger.log_value('train_loss', loss, epoch)
         logger.log_value('train_acc', train_acc, epoch)
-        logger.log_value(
-            'learning_rate', optimizer.param_groups[0]['lr'], epoch)
+        logger.log_value('learning_rate', optimizer.param_groups[0]['lr'], epoch)
 
         # evaluation
         loss, val_acc = validate(val_loader, model, criterion, opt)
