@@ -64,9 +64,11 @@ def accuracy(output, target, topk=(1,)):
         correct = pred.eq(target.view(1, -1).expand_as(pred))
 
         res = []
+        
         for k in topk:
             correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
             res.append(correct_k.mul_(100.0 / batch_size))
+
         return res
 
 
@@ -96,20 +98,26 @@ def warmup_learning_rate(args, epoch, batch_id, total_batches, optimizer):
 
 
 def set_optimizer(opt, model):
+
     optimizer = optim.SGD(model.parameters(),
                           lr=opt.learning_rate,
                           momentum=opt.momentum,
                           weight_decay=opt.weight_decay)
+    
     return optimizer
 
 
 def save_model(model, optimizer, opt, epoch, save_file):
-    print('==> Saving...')
+
+    print('\n[INFO] ==> Saving...')
+
     state = {
         'opt': opt,
         'model': model.state_dict(),
         'optimizer': optimizer.state_dict(),
         'epoch': epoch,
     }
+
     torch.save(state, save_file)
+
     del state
