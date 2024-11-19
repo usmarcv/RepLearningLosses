@@ -12,20 +12,14 @@ import torch.backends.cudnn as cudnn
 
 from main_ce import set_loader
 from util import AverageMeter
-from util import adjust_learning_rate, warmup_learning_rate, accuracy
-from util import save_model, set_optimizer
+from util import adjust_learning_rate, warmup_learning_rate, accuracy, save_model, set_optimizer
 from networks.resnet_big import SupConResNet, LinearClassifier
-
-try:
-    import apex
-    from apex import amp, optimizers
-except ImportError:
-    pass
 
 
 def parse_option():
-    parser = argparse.ArgumentParser('argument for training')
 
+    parser = argparse.ArgumentParser('Arguments for training...')
+    
     parser.add_argument('--print_freq', type=int, default=10,
                         help='print frequency')
     parser.add_argument('--save_freq', type=int, default=50,
@@ -148,11 +142,19 @@ def parse_option():
     opt.save_folder = os.path.join(opt.model_path, opt.model_name)
     os.makedirs(opt.save_folder, exist_ok=True)
 
+    # Priting arguments for logging
+    print("\n[INFO] Printing arguments for pre-training stage...")
     print(opt)
+    
+    print("\n[INFO] Training with gpu: {}".format(torch.cuda.get_device_name()))
+    
     return opt
 
 
 def set_model(opt):
+
+    print('\n[INFO] Setting model and criterion with linear classifier...')
+
     model = SupConResNet(name=opt.model)
     criterion = torch.nn.CrossEntropyLoss()
 
@@ -321,6 +323,7 @@ def main():
     optimizer = set_optimizer(opt, classifier)
 
     # training routine
+    print('\n[INFO] Training model with stage two...')
     for epoch in range(1, opt.epochs + 1):
         adjust_learning_rate(opt, optimizer, epoch)
 
