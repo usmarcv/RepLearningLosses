@@ -12,18 +12,9 @@ from torch.utils.tensorboard import SummaryWriter
 
 from contrast_acc import contrastive_acc, test_contrastive_acc, test_contrastive_acc_knn
 from main_ce import set_loader
-from util import AverageMeter
-from util import adjust_learning_rate, warmup_learning_rate, set_optimizer, save_model
+from util import AverageMeter, adjust_learning_rate, warmup_learning_rate, set_optimizer, save_model
 from networks.resnet_big import SupConResNet
-from losses import SupConLoss
-from revised_losses import MultiviewSINCERELoss, MultiviewEpsSupInfoNCELoss, InfoNCELoss
-
-
-try:
-    import apex
-    from apex import amp, optimizers    
-except ImportError:
-    pass
+from losses import SupConLoss, MultiviewSINCERELoss, MultiviewEpsSupInfoNCELoss, InfoNCELoss
 
 
 def parse_option():
@@ -204,7 +195,6 @@ def set_model(opt):
 
 def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
     """one epoch training"""
-    print('\n[INFO] Training model...')
 
     #Set model to train mode
     model.train()
@@ -259,7 +249,7 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
 
         # compute accuracy
         with torch.no_grad():
-            if opt.method == 'SimCLR' or opt.method == 'InfoNCE':
+            if opt.method not in ['SimCLR', 'InfoNCE']:
                 pass #No need to compute accuracy for self-supervised methods
             else:
                 acc = contrastive_acc(embeds, labels)
@@ -423,7 +413,9 @@ def main(opt):
         logger = SummaryWriter(log_dir=opt.tb_folder)
 
     # training routine
+    print('\n[INFO] Training model with stage one...')
     for epoch in range(1, opt.epochs + 1):
+       
         adjust_learning_rate(opt, optimizer, epoch)
 
         # train for one epoch
