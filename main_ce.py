@@ -125,10 +125,17 @@ def parse_option():
     else:
         raise ValueError('dataset not supported: {}'.format(opt.dataset))
 
+     # Priting arguments for logging
+    print("\n[INFO] Printing arguments for Standard Cross-Entropy loss...")
+    print(opt)
+    
+    print("\n[INFO] Training with gpu: {}".format(torch.cuda.get_device_name()))
+
     return opt
 
 
 def set_loader(opt, contrast_trans=False, for_test=False):
+    print("[INFO] Setting up data loaders...")
     # dataset specific normalization
     if opt.dataset == 'cifar10':
         mean = (0.4914, 0.4822, 0.4465)
@@ -370,6 +377,9 @@ def set_loader(opt, contrast_trans=False, for_test=False):
 
 
 def set_model(opt):
+
+    print('\n[INFO] Setting model and criterion...')
+
     model = SupCEResNet(name=opt.model, num_classes=opt.n_cls)
     criterion = torch.nn.CrossEntropyLoss()
 
@@ -480,7 +490,7 @@ def main():
     opt = parse_option()
 
     # build data loader
-    train_loader, val_loader = set_loader(opt)
+    train_loader, val_loader, _ = set_loader(opt)
 
     # build model and criterion
     model, criterion = set_model(opt)
@@ -492,6 +502,7 @@ def main():
     logger = tb_logger.Logger(logdir=opt.tb_folder, flush_secs=2)
 
     # training routine
+    print('\n[INFO] Training model...')
     for epoch in range(1, opt.epochs + 1):
         adjust_learning_rate(opt, optimizer, epoch)
 
