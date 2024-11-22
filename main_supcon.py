@@ -395,8 +395,9 @@ def test(model, opt):
 
 
 def main(opt):
+    
     # build data loader
-    train_loader, valid_loader, test_loader = set_loader(opt, contrast_trans=False)
+    train_loader, valid_loader, _ = set_loader(opt, contrast_trans=False)
 
     # build model
     model, criterion = set_model(opt)
@@ -418,7 +419,6 @@ def main(opt):
         time1 = time.time()
         train(train_loader, model, criterion, optimizer, epoch, opt, logger)
         time2 = time.time()
-        #[TODO] Talvez precisamos voltar aqui para validar melhor essa parte da loss
         # use valid_loader if present
         if epoch % 5 == 0 and valid_loader is not None:
             valid(train_loader, valid_loader, epoch, opt, logger)
