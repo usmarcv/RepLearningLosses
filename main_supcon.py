@@ -178,8 +178,7 @@ def set_model(opt):
     elif opt.method == 'InfoNCE':
         criterion = InfoNCELoss(temperature=opt.temp) #Revisar...
     else:
-        raise ValueError('[INFO] Contrastive method not supported on setting model: {}'.
-                         format(opt.method))
+        raise ValueError('[INFO] Contrastive method not supported on setting model: {}'.format(opt.method))
 
     if torch.cuda.is_available():
         if "device" not in opt:
@@ -239,8 +238,8 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
         elif opt.method == 'SimCLR' or opt.method == 'InfoNCE': #Self-supervised contrastive learning methods
             loss = criterion(embeds)
         else:
-            raise ValueError('[INFO] Contrastive method not supported in training phase: {}'.
-                             format(opt.method))
+            raise ValueError('[INFO] Contrastive method not supported in training phase: {}'.format(opt.method))
+
 
         av_losses.update(loss.item(), bsz)
         optimizer.zero_grad()
@@ -249,11 +248,8 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
 
         # compute accuracy
         with torch.no_grad():
-            if opt.method not in ['SimCLR', 'InfoNCE']:
-                pass #No need to compute accuracy for self-supervised methods
-            else:
-                acc = contrastive_acc(embeds, labels)
-                av_acc.update(acc.item(), bsz)
+            acc = contrastive_acc(embeds, labels)
+            av_acc.update(acc.item(), bsz)
 
         # measure elapsed time
         av_batch_time.update(time.time() - end)
@@ -400,7 +396,7 @@ def test(model, opt):
 
 def main(opt):
     # build data loader
-    train_loader, valid_loader, _ = set_loader(opt, contrast_trans=True)
+    train_loader, valid_loader, test_loader = set_loader(opt, contrast_trans=False)
 
     # build model
     model, criterion = set_model(opt)
