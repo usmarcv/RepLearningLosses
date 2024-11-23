@@ -284,9 +284,9 @@ def set_loader(opt, contrast_trans=False, for_test=False):
                                            download=True)
         test_dataset.targets = test_dataset._labels
     elif opt.dataset == 'imagenet100' or opt.dataset == 'imagenet' or opt.dataset == 'path':
-        train_dataset = datasets.ImageFolder(root=opt.data_folder + "./train/",
+        train_dataset = datasets.ImageFolder(root=opt.data_folder + "/train/",
                                              transform=train_transform)
-        test_dataset = datasets.ImageFolder(root=opt.data_folder + "./test/",
+        test_dataset = datasets.ImageFolder(root=opt.data_folder + "/test/",
                                             transform=test_transform)
     else:
         raise ValueError(opt.dataset)
