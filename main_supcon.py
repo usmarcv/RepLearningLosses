@@ -397,7 +397,7 @@ def test(model, opt):
 
 def main(opt):
     # build data loader
-    train_loader, valid_loader, test_loader = set_loader(opt, contrast_trans=True)
+    train_loader, valid_loader, _ = set_loader(opt, contrast_trans=True)
 
     # build model
     model, criterion = set_model(opt)
