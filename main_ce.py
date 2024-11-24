@@ -86,6 +86,7 @@ def parse_option():
         assert opt.data_folder is not None
         assert opt.mean is not None
         assert opt.std is not None
+        assert opt.n_cls is not None
 
     # set the path according to the environment
     if opt.dataset == 'imagenet100':
