@@ -84,10 +84,10 @@ def parse_option():
 
     # check if dataset is path that passed required arguments
     if opt.dataset == 'path':
-        assert opt.data_folder is not None
-        assert opt.mean is not None
-        assert opt.std is not None
-        assert opt.n_cls is not None
+        opt.data_folder is not None
+        opt.mean is not None
+        opt.std is not None
+        opt.n_cls is not None
 
     # set the path according to the environment
     if opt.dataset == 'imagenet100':
@@ -96,6 +96,7 @@ def parse_option():
         opt.data_folder = '/cluster/tufts/hugheslab/datasets/ImageNet/train/'
     else:
         opt.data_folder = './datasets/'
+
     opt.model_path = './save/SupCon/{}_models'.format(opt.dataset)
     opt.tb_path = './save/SupCon/{}_tensorboard'.format(opt.dataset)
 

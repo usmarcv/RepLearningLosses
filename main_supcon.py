@@ -47,6 +47,7 @@ def parse_option():
     # model dataset
     parser.add_argument('--model', type=str, default='resnet50', choices=['resnet18', 'resnet50', 'resnet101'], 
                         help='Choose your backbone')
+    parser.add_argument('--n_cls', type=int, default=None, help='number of classes')
     parser.add_argument('--dataset', type=str, default='cifar10',
                         choices=['cifar10', 'cifar100', 'imagenet100', 'imagenet', 'cifar2', 'aircraft', 'cars', 'path'], 
                         help='dataset')
@@ -93,6 +94,7 @@ def parse_option():
         assert opt.data_folder is not None
         assert opt.mean is not None
         assert opt.std is not None
+        assert opt.n_cls is not None
 
     # set the path according to the environment
     # [REVISAR...]talvez a gente nem precise desse trecho abaixo...
