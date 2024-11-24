@@ -61,6 +61,13 @@ def parse_option():
                         help="proportion of train data to use for validation set")
     parser.add_argument('--size', type=int, default=32,
                         help='size of images after resizing')
+    parser.add_argument('--mean', type=str,
+                        help='mean of dataset in path in form of str tuple')
+    parser.add_argument('--std', type=str,
+                        help='std of dataset in path in form of str tuple')
+    parser.add_argument('--data_folder', type=str,
+                        default=None, help='path to custom dataset')
+        
 
     # other setting
     parser.add_argument('--cosine', action='store_true',
@@ -482,7 +489,7 @@ def main():
     opt = parse_option()
 
     # build data loader
-    train_loader, valid_loader, _ = set_loader(opt, contrast_trans=True)
+    train_loader, val_loader, _ = set_loader(opt, contrast_trans=True)
 
     # build model and criterion
     model, criterion = set_model(opt)
