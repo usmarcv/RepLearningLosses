@@ -82,6 +82,13 @@ def parse_option():
     opt = parser.parse_args()
 
 
+    # check if dataset is path that passed required arguments
+    if opt.dataset == 'path':
+        assert opt.data_folder is not None
+        assert opt.mean is not None
+        assert opt.std is not None
+        assert opt.n_cls is not None
+
     # set the path according to the environment
     if opt.dataset == 'imagenet100':
         opt.data_folder = '/cluster/tufts/hugheslab/datasets/ImageNet100/train/'
@@ -131,10 +138,7 @@ def parse_option():
     elif opt.dataset == 'cifar100':
         opt.n_cls = 100
     elif opt.dataset == 'path':
-        assert opt.data_folder is not None
-        assert opt.mean is not None
-        assert opt.std is not None
-        assert opt.n_cls is not None
+        opt.n_cls = opt.n_cls
     else:
         raise ValueError('dataset not supported: {}'.format(opt.dataset))
 
