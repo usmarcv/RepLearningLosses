@@ -27,6 +27,7 @@ from networks.resnet_big import SupCEResNet
 
 
 def parse_option():
+
     parser = argparse.ArgumentParser('Argument for training')
 
     parser.add_argument('--print_freq', type=int, default=10,
@@ -60,14 +61,14 @@ def parse_option():
                         help='dataset')
     parser.add_argument('--valid_split', type=float, default=0,
                         help="proportion of train data to use for validation set")
-    parser.add_argument('--size', type=int, default=32,
-                        help='size of images after resizing')
     parser.add_argument('--mean', type=str,
                         help='mean of dataset in path in form of str tuple')
     parser.add_argument('--std', type=str,
                         help='std of dataset in path in form of str tuple')
     parser.add_argument('--data_folder', type=str,
                         default=None, help='path to custom dataset')
+    parser.add_argument('--size', type=int, default=32,
+                        help='size of images after resizing')
         
 
     # other setting
@@ -80,13 +81,6 @@ def parse_option():
 
     opt = parser.parse_args()
 
-
-    # check if dataset is path that passed required arguments
-    if opt.dataset == 'path':
-        assert opt.data_folder is not None
-        assert opt.mean is not None
-        assert opt.std is not None
-        assert opt.n_cls is not None
 
     # set the path according to the environment
     if opt.dataset == 'imagenet100':
@@ -136,6 +130,11 @@ def parse_option():
         opt.n_cls = 10
     elif opt.dataset == 'cifar100':
         opt.n_cls = 100
+    elif opt.dataset == 'path':
+        assert opt.data_folder is not None
+        assert opt.mean is not None
+        assert opt.std is not None
+        assert opt.n_cls is not None
     else:
         raise ValueError('dataset not supported: {}'.format(opt.dataset))
 
