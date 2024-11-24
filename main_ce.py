@@ -54,6 +54,7 @@ def parse_option():
 
     # model dataset
     parser.add_argument('--model', type=str, default='resnet50')
+    parser.add_argument('--n_cls', type=int, default=None, help='number of classes')
     parser.add_argument('--dataset', type=str, default='cifar10',
                         choices=['cifar10', 'cifar100', 'imagenet100', 'imagenet', 'path'],
                         help='dataset')
