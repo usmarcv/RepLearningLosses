@@ -55,7 +55,7 @@ def parse_option():
     # model dataset
     parser.add_argument('--model', type=str, default='resnet50')
     parser.add_argument('--dataset', type=str, default='cifar10',
-                        choices=['cifar10', 'cifar100', 'imagenet100', 'imagenet'],
+                        choices=['cifar10', 'cifar100', 'imagenet100', 'imagenet', 'path'],
                         help='dataset')
     parser.add_argument('--valid_split', type=float, default=0,
                         help="proportion of train data to use for validation set")
@@ -78,6 +78,13 @@ def parse_option():
                         help='id for recording multiple runs')
 
     opt = parser.parse_args()
+
+
+    # check if dataset is path that passed required arguments
+    if opt.dataset == 'path':
+        assert opt.data_folder is not None
+        assert opt.mean is not None
+        assert opt.std is not None
 
     # set the path according to the environment
     if opt.dataset == 'imagenet100':
