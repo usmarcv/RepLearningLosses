@@ -1,6 +1,7 @@
 # dataset download folder
 datasets/
 PlatonicsSolidsImages/
+save_giva_Servers/
 
 #nohup outputs
 *.txt
