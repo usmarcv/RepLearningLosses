@@ -17,6 +17,7 @@ tensorboard = "*"
 seaborn = "*"
 pytest = "*"
 tensorflow = "*"
+einops = "*"
 
 [dev-packages]
 torch-tb-profiler = "*"
