@@ -18,9 +18,11 @@ seaborn = "*"
 pytest = "*"
 tensorflow = "*"
 einops = "*"
+timm = "*"
 
 [dev-packages]
 torch-tb-profiler = "*"
+ipykernel = "*"
 
 [requires]
 python_version = "3.12"
