@@ -14,7 +14,11 @@ from contrast_acc import contrastive_acc, test_contrastive_acc, test_contrastive
 from main_ce import set_loader
 from util import AverageMeter, adjust_learning_rate, warmup_learning_rate, set_optimizer, save_model
 from networks.resnet_big import SupConResNet
+from networks.vit import ViTEncoder
 from losses import SupConLoss, MultiviewSINCERELoss, MultiviewEpsSupInfoNCELoss, InfoNCELoss
+
+import timm
+from timm.models.vision_transformer import VisionTransformer
 
 
 def parse_option():
@@ -45,7 +49,8 @@ def parse_option():
                         help='momentum')
 
     # model dataset
-    parser.add_argument('--model', type=str, default='resnet50', choices=['resnet18', 'resnet50', 'resnet101'], 
+    parser.add_argument('--model', type=str, default='resnet50', choices=['resnet18', 'resnet50', 'resnet101', 
+                                                                          'vit_small_patch16_32', 'vit'], 
                         help='Choose your backbone')
     parser.add_argument('--n_cls', type=int, default=None, help='number of classes')
     parser.add_argument('--dataset', type=str, default='cifar10',
@@ -164,8 +169,22 @@ def set_model(opt):
     """    
     print('\n[INFO] Setting model and criterion...')
 
-    #Set the model
-    model = SupConResNet(name=opt.model) 
+     # Set the model
+    if opt.model == "vit":
+        model = VisionTransformer(
+        img_size=opt.size,      # Tamanho da imagem
+        patch_size=4,     # Tamanho do patch
+        embed_dim=128,    # Dimensão do embedding
+        depth=12,         # Número de camadas do transformer
+        num_heads=4      # Número de cabeças de atenção
+        #num_classes=,   # Número de classes (ex: CIFAR-10)
+        #drop_rate=0.1,    # Dropout
+        )
+
+        #model = ViTEncoder(model_name=opt.model)
+    else:
+        model = SupConResNet(name=opt.model)
+
     #Set criterion 
     if opt.method == 'SINCERE':
         # original implementation does not set base_temperature, but setting here to make
@@ -287,12 +306,12 @@ def valid(train_loader, valid_loader, epoch, opt, logger):
     model, criterion = set_model(opt)
     
     # caches for data
-    train_embeds = torch.empty((0, 128))
+    train_embeds = torch.empty((0,))
     train_labels = torch.empty((0,))
 
     # caches for test data
     if val_is_test:
-        test_embeds = torch.empty((0, 128))
+        test_embeds = torch.empty((0,))
         test_labels = torch.empty((0,))
 
     for i, loader in enumerate([train_loader, valid_loader]):
@@ -330,6 +349,7 @@ def valid(train_loader, valid_loader, epoch, opt, logger):
                 [aug.unsqueeze(1) for aug in torch.split(flat_embeds, [bsz, bsz], dim=0)], dim=1)
             # cache train outputs
             if is_train:
+                print("Train embeds shape: ", embeds[:, 0].shape[1])
                 train_embeds = torch.vstack((train_embeds, embeds[:, 0].cpu()))
                 train_labels = torch.hstack((train_labels, labels.cpu()))
             else:
