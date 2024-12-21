@@ -2,6 +2,7 @@
 datasets/
 PlatonicSolidsImages/
 save_giva_Servers/
+oxford-iiit-pet/
 
 #nohup outputs
 *.txt
