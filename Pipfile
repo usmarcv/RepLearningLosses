@@ -18,11 +18,8 @@ seaborn = "*"
 pytest = "*"
 tensorflow = "*"
 einops = "*"
-<<<<<<< HEAD
 timm = "*"
-=======
 transformers = "*"
->>>>>>> 88b9927 (testando)
 
 [dev-packages]
 torch-tb-profiler = "*"
