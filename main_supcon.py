@@ -306,12 +306,12 @@ def valid(train_loader, valid_loader, epoch, opt, logger):
     model, criterion = set_model(opt)
     
     # caches for data
-    train_embeds = torch.empty((0,))
+    train_embeds = torch.empty((0,128))
     train_labels = torch.empty((0,))
 
     # caches for test data
     if val_is_test:
-        test_embeds = torch.empty((0,))
+        test_embeds = torch.empty((0,128))
         test_labels = torch.empty((0,))
 
     for i, loader in enumerate([train_loader, valid_loader]):
