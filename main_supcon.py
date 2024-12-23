@@ -102,14 +102,18 @@ def parse_option():
         #assert opt.n_cls is not None
 
     # set the path according to the environment
-    # [REVISAR...]talvez a gente nem precise desse trecho abaixo...
     if opt.data_folder is None:
-        if opt.dataset == 'imagenet100':
-            opt.data_folder = '/cluster/tufts/hugheslab/datasets/ImageNet100/train/'
-        elif opt.dataset == 'imagenet':
-            opt.data_folder = '/cluster/tufts/hugheslab/datasets/ImageNet/train/'
-        else:
-            opt.data_folder = './datasets/'
+        opt.data_folder = './datasets/'
+
+    # set the path according to the environment
+    # # [REVISAR...]talvez a gente nem precise desse trecho abaixo...
+    # if opt.data_folder is None:
+    #     if opt.dataset == 'imagenet100':
+    #         opt.data_folder = '/cluster/tufts/hugheslab/datasets/ImageNet100/train/'
+    #     elif opt.dataset == 'imagenet':
+    #         opt.data_folder = '/cluster/tufts/hugheslab/datasets/ImageNet/train/'
+    #     else:
+    #         opt.data_folder = './datasets/'
 
     opt.model_path = './save/SupCon/{}_models'.format(opt.dataset)
     opt.tb_path = './save/SupCon/{}_tensorboard'.format(opt.dataset)
@@ -306,12 +310,12 @@ def valid(train_loader, valid_loader, epoch, opt, logger):
     model, criterion = set_model(opt)
     
     # caches for data
-    train_embeds = torch.empty((0,128))
+    train_embeds = torch.empty((0, 128))
     train_labels = torch.empty((0,))
 
     # caches for test data
     if val_is_test:
-        test_embeds = torch.empty((0,128))
+        test_embeds = torch.empty((0, 128))
         test_labels = torch.empty((0,))
 
     for i, loader in enumerate([train_loader, valid_loader]):
