@@ -90,12 +90,16 @@ def parse_option():
         opt.n_cls is not None
 
     # set the path according to the environment
-    if opt.dataset == 'imagenet100':
-        opt.data_folder = '/cluster/tufts/hugheslab/datasets/ImageNet100/train/'
-    elif opt.dataset == 'imagenet':
-        opt.data_folder = '/cluster/tufts/hugheslab/datasets/ImageNet/train/'
-    else:
+    if opt.data_folder is None:
         opt.data_folder = './datasets/'
+
+    # # set the path according to the environment
+    # if opt.dataset == 'imagenet100':
+    #     opt.data_folder = '/cluster/tufts/hugheslab/datasets/ImageNet100/train/'
+    # elif opt.dataset == 'imagenet':
+    #     opt.data_folder = '/cluster/tufts/hugheslab/datasets/ImageNet/train/'
+    # else:
+    #     opt.data_folder = './datasets/'
 
     opt.model_path = './save/SupCon/{}_models'.format(opt.dataset)
     opt.tb_path = './save/SupCon/{}_tensorboard'.format(opt.dataset)
@@ -138,6 +142,8 @@ def parse_option():
         opt.n_cls = 10
     elif opt.dataset == 'cifar100':
         opt.n_cls = 100
+    elif opt.dataset == 'path':
+        pass
     else:
         raise ValueError('dataset not supported: {}'.format(opt.dataset))
 
@@ -310,9 +316,9 @@ def set_loader(opt, contrast_trans=False, for_test=False):
                                            download=True)
         test_dataset.targets = test_dataset._labels
     elif opt.dataset == 'imagenet100' or opt.dataset == 'imagenet' or opt.dataset == 'path':
-        train_dataset = datasets.ImageFolder(root=opt.data_folder + "/train/",
+        train_dataset = datasets.ImageFolder(root=opt.data_folder + '/train/',
                                              transform=train_transform)
-        test_dataset = datasets.ImageFolder(root=opt.data_folder + "/test/",
+        test_dataset = datasets.ImageFolder(root=opt.data_folder + '/test/',
                                             transform=test_transform)
     else:
         raise ValueError(opt.dataset)
@@ -416,8 +422,10 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
     for idx, (images, labels) in enumerate(train_loader):
         data_time.update(time.time() - end)
 
-        images = images.cuda(non_blocking=True)
-        labels = labels.cuda(non_blocking=True)
+        if torch.cuda.is_available():
+            images = images.cuda(non_blocking=True)
+            labels = labels.cuda(non_blocking=True)
+        
         bsz = labels.shape[0]
 
         # warm-up learning rate
