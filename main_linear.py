@@ -50,13 +50,21 @@ def parse_option():
     # model dataset
     # Aqui tem as alterações para o modelo e dataset // mexer aqui
     parser.add_argument('--model', type=str, default='resnet50')
-    parser.add_argument('--n_cls', type=int, default=None, help='number of classes')
+    parser.add_argument('--n_cls', type=int, default=9, help='number of classes') #for platonicsolids dataset
     parser.add_argument('--dataset', type=str, default='cifar10',
                         choices=['cifar10', 'cifar100', 'imagenet100', 'imagenet', 'cifar2',
                                  'aircraft', 'cars', 'food101', 'pet', 'dtd', 'flowers', 'path'],
                         help='dataset')
     parser.add_argument('--valid_split', type=float, default=0,
                         help="proportion of train data to use for validation set")
+    parser.add_argument('--mean', type=str,
+                        help='mean of dataset in path in form of str tuple')
+    parser.add_argument('--std', type=str,
+                        help='std of dataset in path in form of str tuple')
+    parser.add_argument('--data_folder', type=str,
+                        default=None, help='path to custom dataset')
+    # parser.add_argument('--valid_split', type=float, default=0,
+    #                     help="proportion of train data to use for validation set")
     parser.add_argument('--size', type=int, default=32,
                         help='size of images after resizing')
 
@@ -81,12 +89,16 @@ def parse_option():
         assert opt.n_cls is not None
 
     # set the path according to the environment
-    if opt.dataset == 'imagenet100':
-        opt.data_folder = '/cluster/tufts/hugheslab/datasets/ImageNet100/train/'
-    elif opt.dataset == 'imagenet':
-        opt.data_folder = '/cluster/tufts/hugheslab/datasets/ImageNet/train/'
-    else:
+    if opt.data_folder is None:
         opt.data_folder = './datasets/'
+
+    # # set the path according to the environment
+    # if opt.dataset == 'imagenet100':
+    #     opt.data_folder = '/cluster/tufts/hugheslab/datasets/ImageNet100/train/'
+    # elif opt.dataset == 'imagenet':
+    #     opt.data_folder = '/cluster/tufts/hugheslab/datasets/ImageNet/train/'
+    # else:
+    #     opt.data_folder = './datasets/'
 
     iterations = opt.lr_decay_epochs.split(',')
     opt.lr_decay_epochs = list([])
@@ -135,6 +147,8 @@ def parse_option():
         opt.n_cls = 47
     elif opt.dataset == 'flowers':
         opt.n_cls = 102
+    elif opt.dataset == 'path':
+        pass
     else:
         raise ValueError('dataset not supported: {}'.format(opt.dataset))
 
