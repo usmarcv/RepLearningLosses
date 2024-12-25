@@ -146,7 +146,13 @@ def parse_option():
         pass
     else:
         raise ValueError('dataset not supported: {}'.format(opt.dataset))
-
+    
+    # Priting arguments for logging
+    print("\n[INFO] Printing arguments for pre-training stage...")
+    print(opt)
+    
+    print("\n[INFO] Training with gpu: {}".format(torch.cuda.get_device_name()))
+    
     return opt
 
 
