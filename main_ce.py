@@ -89,7 +89,8 @@ def parse_option():
         opt.mean is not None
         opt.std is not None
         opt.n_cls is not None
-    elif opt.data_folder is None: # set the path according to the environment
+    
+    if opt.data_folder is None: # set the path according to the environment
         opt.data_folder = './datasets/'
 
     # # set the path according to the environment
@@ -141,6 +142,8 @@ def parse_option():
         opt.n_cls = 10
     elif opt.dataset == 'cifar100':
         opt.n_cls = 100
+    elif opt.dataset == 'path':
+        pass
     else:
         raise ValueError('dataset not supported: {}'.format(opt.dataset))
 
@@ -550,3 +553,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
