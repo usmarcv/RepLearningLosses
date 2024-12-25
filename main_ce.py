@@ -88,9 +88,7 @@ def parse_option():
         opt.mean is not None
         opt.std is not None
         opt.n_cls is not None
-
-    # set the path according to the environment
-    if opt.data_folder is None:
+    elif opt.data_folder is None: # set the path according to the environment
         opt.data_folder = './datasets/'
 
     # # set the path according to the environment
@@ -143,7 +141,7 @@ def parse_option():
     elif opt.dataset == 'cifar100':
         opt.n_cls = 100
     elif opt.dataset == 'path':
-        opt.n_cls = 9
+        pass
     else:
         raise ValueError('dataset not supported: {}'.format(opt.dataset))
 
@@ -395,10 +393,6 @@ def set_model(opt):
     model = SupCEResNet(name=opt.model, num_classes=opt.n_cls)
     criterion = torch.nn.CrossEntropyLoss()
 
-    # # enable synchronized Batch Normalization
-    # if opt.syncBN:
-    #     model = apex.parallel.convert_syncbn_model(model)
-
     if torch.cuda.is_available():
         if torch.cuda.device_count() > 1:
             model = torch.nn.DataParallel(model)
@@ -426,7 +420,6 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
         images = images.cuda(non_blocking=True)
         print('type imagens: ', type(images))
         labels = labels.cuda(non_blocking=True)
-        
         bsz = labels.shape[0]
 
         # warm-up learning rate
