@@ -59,14 +59,15 @@ def parse_option():
     parser.add_argument('--dataset', type=str, default='cifar10',
                         choices=['cifar10', 'cifar100', 'imagenet100', 'imagenet', 'path'],
                         help='dataset')
+    parser.add_argument('--data_folder', type=str,
+                        default=None, help='path to custom dataset')
     parser.add_argument('--valid_split', type=float, default=0,
                         help="proportion of train data to use for validation set")
     parser.add_argument('--mean', type=str,
                         help='mean of dataset in path in form of str tuple')
     parser.add_argument('--std', type=str,
                         help='std of dataset in path in form of str tuple')
-    parser.add_argument('--data_folder', type=str,
-                        default=None, help='path to custom dataset')
+  
     parser.add_argument('--size', type=int, default=32,
                         help='size of images after resizing')
         
