@@ -418,10 +418,18 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
     for idx, (images, labels) in enumerate(train_loader):
         data_time.update(time.time() - end)
 
-        print('Loop treino\n')
-        images = images.cuda(non_blocking=True)
-        print('type imagens: ', type(images))
-        labels = labels.cuda(non_blocking=True)
+        # print('Loop treino\n')
+        # images = images.cuda(non_blocking=True)
+        # print('type imagens: ', type(images))
+        # labels = labels.cuda(non_blocking=True)
+        # bsz = labels.shape[0]
+        if torch.cuda.is_available():
+            if "device" not in opt:
+                images = images.cuda(non_blocking=True)
+                labels = labels.cuda(non_blocking=True)
+            else:
+                images = images.to(opt.device, non_blocking=True)
+                labels = labels.to(opt.device, non_blocking=True)
         bsz = labels.shape[0]
 
         # warm-up learning rate
