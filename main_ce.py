@@ -143,7 +143,7 @@ def parse_option():
     elif opt.dataset == 'cifar100':
         opt.n_cls = 100
     elif opt.dataset == 'path':
-        pass
+        opt.n_cls = 9
     else:
         raise ValueError('dataset not supported: {}'.format(opt.dataset))
 
