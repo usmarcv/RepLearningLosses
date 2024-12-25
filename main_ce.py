@@ -424,7 +424,7 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
 
         print('Loop treino\n')
         images = images.cuda(non_blocking=True)
-        print('type imagens: 'type(images))
+        print('type imagens: ', type(images))
         labels = labels.cuda(non_blocking=True)
         
         bsz = labels.shape[0]
