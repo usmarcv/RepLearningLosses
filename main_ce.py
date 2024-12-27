@@ -214,7 +214,7 @@ def set_loader(opt, contrast_trans=False, for_test=False):
                 transforms.ToTensor(),
                 normalize,
             ]))
-    # non-contrastive data transforms
+    # non-contrastive data transforms == False
     else:
         train_transform = transforms.Compose([
             transforms.RandomResizedCrop(size=opt.size, scale=(0.2, 1.)),
@@ -388,6 +388,7 @@ def set_loader(opt, contrast_trans=False, for_test=False):
 
 
 def set_model(opt):
+
     model = SupCEResNet(name=opt.model, num_classes=opt.n_cls)
     criterion = torch.nn.CrossEntropyLoss()
 
