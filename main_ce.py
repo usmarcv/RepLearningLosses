@@ -19,12 +19,6 @@ from util import AverageMeter, DoubleTransform, SubsetWithTargets, TwoCropTransf
 from util import adjust_learning_rate, warmup_learning_rate, accuracy, set_optimizer, save_model
 from networks.resnet_big import SupCEResNet
 
-# try:
-#     import apex
-#     from apex import amp, optimizers
-# except ImportError:
-#     pass
-
 
 def parse_option():
 
@@ -38,7 +32,7 @@ def parse_option():
                         help='batch_size')
     parser.add_argument('--num_workers', type=int, default=16,
                         help='num of workers to use')
-    parser.add_argument('--epochs', type=int, default=100,
+    parser.add_argument('--epochs', type=int, default=1000,
                         help='number of training epochs')
 
     # optimization
@@ -55,19 +49,18 @@ def parse_option():
 
     # model dataset
     parser.add_argument('--model', type=str, default='resnet50')
-    parser.add_argument('--n_cls', type=int, default=9, help='number of classes')
+    parser.add_argument('--n_cls', type=int, default=None, help='number of classes')
     parser.add_argument('--dataset', type=str, default='cifar10',
                         choices=['cifar10', 'cifar100', 'imagenet100', 'imagenet', 'path'],
                         help='dataset')
-    parser.add_argument('--data_folder', type=str,
-                        default=None, help='path to custom dataset')
     parser.add_argument('--valid_split', type=float, default=0,
                         help="proportion of train data to use for validation set")
     parser.add_argument('--mean', type=str,
                         help='mean of dataset in path in form of str tuple')
     parser.add_argument('--std', type=str,
                         help='std of dataset in path in form of str tuple')
-  
+    parser.add_argument('--data_folder', type=str,
+                        default=None, help='path to custom dataset')
     parser.add_argument('--size', type=int, default=32,
                         help='size of images after resizing')
         
@@ -75,6 +68,8 @@ def parse_option():
     # other setting
     parser.add_argument('--cosine', action='store_true',
                         help='using cosine annealing')
+    # parser.add_argument('--syncBN', action='store_true',
+    #                     help='using synchronized batch normalization')
     parser.add_argument('--warm', action='store_true',
                         help='warm-up for large batch training')
     parser.add_argument('--trial', type=str, default='0',
@@ -89,17 +84,18 @@ def parse_option():
         opt.mean is not None
         opt.std is not None
         opt.n_cls is not None
-    
-    if opt.data_folder is None: # set the path according to the environment
-        opt.data_folder = './datasets/'
 
-    # # set the path according to the environment
-    # if opt.dataset == 'imagenet100':
-    #     opt.data_folder = '/cluster/tufts/hugheslab/datasets/ImageNet100/train/'
-    # elif opt.dataset == 'imagenet':
-    #     opt.data_folder = '/cluster/tufts/hugheslab/datasets/ImageNet/train/'
-    # else:
-    #     opt.data_folder = './datasets/'
+    # set the path according to the environment
+    #if opt.dataset == 'imagenet100':
+    #    opt.data_folder = '/cluster/tufts/hugheslab/datasets/ImageNet100/train/'
+    #elif opt.dataset == 'imagenet':
+    #    opt.data_folder = '/cluster/tufts/hugheslab/datasets/ImageNet/train/'
+    #else:
+    #    opt.data_folder = './datasets/'
+
+    # set the path according to the environment
+    if opt.data_folder is None:
+        opt.data_folder = './datasets/'
 
     opt.model_path = './save/SupCon/{}_models'.format(opt.dataset)
     opt.tb_path = './save/SupCon/{}_tensorboard'.format(opt.dataset)
@@ -146,13 +142,7 @@ def parse_option():
         pass
     else:
         raise ValueError('dataset not supported: {}'.format(opt.dataset))
-    
-    # Priting arguments for logging
-    print("\n[INFO] Printing arguments for pre-training stage...")
-    print(opt)
-    
-    print("\n[INFO] Training with gpu: {}".format(torch.cuda.get_device_name()))
-    
+
     return opt
 
 
@@ -322,9 +312,9 @@ def set_loader(opt, contrast_trans=False, for_test=False):
                                            download=True)
         test_dataset.targets = test_dataset._labels
     elif opt.dataset == 'imagenet100' or opt.dataset == 'imagenet' or opt.dataset == 'path':
-        train_dataset = datasets.ImageFolder(root=opt.data_folder + '/train/',
+        train_dataset = datasets.ImageFolder(root=opt.data_folder + "/train/",
                                              transform=train_transform)
-        test_dataset = datasets.ImageFolder(root=opt.data_folder + '/test/',
+        test_dataset = datasets.ImageFolder(root=opt.data_folder + "/test/",
                                             transform=test_transform)
     else:
         raise ValueError(opt.dataset)
@@ -424,18 +414,9 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
     for idx, (images, labels) in enumerate(train_loader):
         data_time.update(time.time() - end)
 
-        # print('Loop treino\n')
-        # images = images.cuda(non_blocking=True)
-        # print('type imagens: ', type(images))
-        # labels = labels.cuda(non_blocking=True)
-        # bsz = labels.shape[0]
-        if torch.cuda.is_available():
-            if "device" not in opt:
-                images = images.cuda(non_blocking=True)
-                labels = labels.cuda(non_blocking=True)
-            else:
-                images = images.to(opt.device, non_blocking=True)
-                labels = labels.to(opt.device, non_blocking=True)
+    
+        images = images.cuda(non_blocking=True)
+        labels = labels.cuda(non_blocking=True)
         bsz = labels.shape[0]
 
         # warm-up learning rate
@@ -518,7 +499,7 @@ def main():
     opt = parse_option()
 
     # build data loader
-    train_loader, val_loader, _ = set_loader(opt, contrast_trans=True)
+    train_loader, _, val_loader = set_loader(opt)
 
     # build model and criterion
     model, criterion = set_model(opt)
@@ -567,5 +548,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
