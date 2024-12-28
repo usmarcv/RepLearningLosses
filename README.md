@@ -12,7 +12,7 @@ This part of the repo is based on:
 
 > pipenv sync
 
-> pipenv run file.py
+> pipenv run python file.py
 
 Example bash run using `--dataset` CIFAR-10:
 
