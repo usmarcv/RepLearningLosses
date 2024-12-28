@@ -8,9 +8,9 @@ This part of the repo is based on:
 
 > pip install pipenv
 
-> pipenv sync
-
 > pipenv shell
+
+> pipenv sync
 
 > pipenv run file.py
 
