@@ -4,6 +4,10 @@ PlatonicSolidsImages/
 save_giva_Servers/
 oxford-iiit-pet/
 
+#chekpoints torch and tensorboard
+*.pth
+*.0
+
 #nohup outputs
 *.txt
 *.out

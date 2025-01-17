@@ -14,11 +14,11 @@ from contrast_acc import contrastive_acc, test_contrastive_acc, test_contrastive
 from main_ce import set_loader
 from util import AverageMeter, adjust_learning_rate, warmup_learning_rate, set_optimizer, save_model
 from networks.resnet_big import SupConResNet
-from networks.vit import ViTEncoder
 from losses import SupConLoss, MultiviewSINCERELoss, MultiviewEpsSupInfoNCELoss, InfoNCELoss
 
 import timm
-from timm.models.vision_transformer import VisionTransformer
+# from timm.models.vision_transformer import VisionTransformer
+from networks.vit import VisionTransformer32
 
 
 def parse_option():
@@ -175,16 +175,13 @@ def set_model(opt):
 
      # Set the model
     if opt.model == "vit":
-        model = VisionTransformer(
+        model = VisionTransformer32(
         img_size=opt.size,      # Tamanho da imagem
         patch_size=4,     # Tamanho do patch
-        embed_dim=128,    # Dimensão do embedding
-        depth=12,         # Número de camadas do transformer
-        num_heads=4      # Número de cabeças de atenção
-        #num_classes=,   # Número de classes (ex: CIFAR-10)
-        #drop_rate=0.1,    # Dropout
+        embed_dim=256,     # Dimensão do embedding
+        hidden_dim=2048,   # Dimensão da camada intermediária
+        num_classes=opt.n_cls  # Número de classes
         )
-
         #model = ViTEncoder(model_name=opt.model)
     else:
         model = SupConResNet(name=opt.model)
