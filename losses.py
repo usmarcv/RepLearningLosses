@@ -34,7 +34,9 @@ class SupConLoss(nn.Module):
         device = (features.get_device()
                   if features.is_cuda
                   else torch.device('cpu'))
-
+        
+        print("entrei aqui: ", features.shape)
+        
         if len(features.shape) < 3:
             raise ValueError('`features` needs to be [bsz, n_views, ...],'
                              'at least 3 dimensions are required')

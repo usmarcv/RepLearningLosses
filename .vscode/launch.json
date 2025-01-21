@@ -4,7 +4,6 @@
     // Para obter mais informações, acesse: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-
         {
             "name": "Depurador do Python: main_supcon.py",
             "type": "debugpy",
@@ -12,23 +11,21 @@
             "program": "${workspaceFolder}/main_supcon.py",
             "console": "integratedTerminal",
             "args": [
-                "--batch_size", "32", 
+                "--batch_size", "32",
                 "--epochs", "2",
                 "--learning_rate", "0.001",
-                "--dataset", "path",
-                "--data_folder", "./PlatonicSolidsImages",
-                "--mean", "(0.4914, 0.4822, 0.4465)",
-                "--std", "(0.2675, 0.2565, 0.2761)",
-                "--method", "SupCon"
-            ]
+                "--dataset",
+                "path",
+                "--data_folder",
+                "./PlatonicSolidsImages",
+                "--mean",
+                "(0.4914, 0.4822, 0.4465)",
+                "--std",
+                "(0.2675, 0.2565, 0.2761)",
+                "--method",
+                "SupCon"
+            ],
+            "justMyCode": false
         }
     ]
 }
-
-// {
-//     "name": "Python Debugger: startup.py",
-//     "type": "debugpy",
-//     "request": "launch",
-//     "program": "${workspaceFolder}/startup.py",
-//     "args" : ["--port", "1593"]
-// },
