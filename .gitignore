@@ -3,6 +3,7 @@ datasets/
 PlatonicSolidsImages/
 save_giva_Servers/
 oxford-iiit-pet/
+save_only_selecteds/
 
 #chekpoints torch and tensorboard
 *.pth
