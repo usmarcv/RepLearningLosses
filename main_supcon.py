@@ -178,9 +178,10 @@ def set_model(opt):
         model = VisionTransformer32(
         img_size=opt.size,      # Tamanho da imagem
         patch_size=4,     # Tamanho do patch
-        embed_dim=256,     # Dimensão do embedding
+        embed_dim=384,     # Dimensão do embedding
         hidden_dim=2048,   # Dimensão da camada intermediária
-        num_classes=opt.n_cls  # Número de classes
+        feat_dim=128,      # Dimensão do espaço latente
+        num_classes=0  # Número de classes
         )
         #model = ViTEncoder(model_name=opt.model)
     else:
