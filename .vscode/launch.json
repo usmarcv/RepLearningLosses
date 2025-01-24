@@ -13,19 +13,15 @@
             "console": "integratedTerminal",
             "args": [
                 "--batch_size", "32",
-                "--epochs", "2",
-                "--model", "vit",
+                "--size", "32",
+                "--epochs", "20",
+                "--model", "vit_tiny",
                 "--learning_rate", "0.001",
-                "--dataset",
-                "path",
-                "--data_folder",
-                "./PlatonicSolidsImages",
-                "--mean",
-                "(0.4914, 0.4822, 0.4465)",
-                "--std",
-                "(0.2675, 0.2565, 0.2761)",
-                "--method",
-                "SupCon"
+                "--dataset", "path",
+                "--data_folder", "./PlatonicSolidsImages",
+                "--mean", "(0.4914, 0.4822, 0.4465)",
+                "--std", "(0.2675, 0.2565, 0.2761)",
+                "--method", "EpsSupInfoNCE"
             ],
             "justMyCode": false
         }
