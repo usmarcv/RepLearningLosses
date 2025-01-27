@@ -15,7 +15,6 @@ from main_ce import set_loader
 from util import AverageMeter, adjust_learning_rate, warmup_learning_rate, set_optimizer, save_model
 from networks.resnet_big import SupConResNet
 from losses import SupConLoss, MultiviewSINCERELoss, MultiviewEpsSupInfoNCELoss, InfoNCELoss
-
 import networks.vit as vits
 
 
@@ -171,17 +170,12 @@ def set_model(opt):
     """    
     print('\n[INFO] Setting model and criterion...')
 
-    # Set the model
-    if opt.model == "vit_tiny":
-        model = vits.vit_tiny()
-    elif opt.model == "vit_small":
-        model = vits.vit_small()
-    elif opt.model == "vit_base":
-        model = vits.vit_base()
-    elif opt.model == "vit_large":
-        model = vits.vit_large()
-    else:
+    # # Set the model
+    if "vit" in opt.model: #If model is ViT
+        model = vits.SupConViT(name=opt.model)
+    else: #If model is resnet
         model = SupConResNet(name=opt.model)
+     
 
     #Set criterion 
     if opt.method == 'SINCERE':
@@ -303,7 +297,7 @@ def valid(train_loader, valid_loader, epoch, opt, logger):
     val_is_test = logger is None
     model, criterion = set_model(opt
                                  )
-    print("Model used: ", model.__class__.__name__)
+    print("Model used: ", opt.model)
 
     # Define as dimensões de embeddings para diferentes arquiteturas
     embedding_dims = {
@@ -314,7 +308,6 @@ def valid(train_loader, valid_loader, epoch, opt, logger):
         "vit_large": 1024,
     }
     
-    # Obtemos a dimensão do embedding com base no nome da classe do modelo
     embedding_dim = embedding_dims.get(opt.model)  
 
     # Caches para dados de treinamento
