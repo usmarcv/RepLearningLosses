@@ -18,6 +18,7 @@ import sampler
 from util import AverageMeter, DoubleTransform, SubsetWithTargets, TwoCropTransform
 from util import adjust_learning_rate, warmup_learning_rate, accuracy, set_optimizer, save_model
 from networks.resnet_big import SupCEResNet
+import networks.vit as vits
 
 
 def parse_option():
@@ -389,7 +390,13 @@ def set_loader(opt, contrast_trans=False, for_test=False):
 
 def set_model(opt):
 
-    model = SupCEResNet(name=opt.model, num_classes=opt.n_cls)
+    if "vit" in opt.model: #If model is ViT
+        model = vits.SupCEViT(name=opt.model, num_classes=opt.n_cls)
+        # classifier = vits.LinearClassifierViT(name=opt.model, num_classes=opt.n_cls)
+    else: 
+        model = SupCEResNet(name=opt.model, num_classes=opt.n_cls)
+    
+    
     criterion = torch.nn.CrossEntropyLoss()
 
     if torch.cuda.is_available():
