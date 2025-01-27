@@ -14,6 +14,8 @@ from main_ce import set_loader
 from util import AverageMeter
 from util import adjust_learning_rate, warmup_learning_rate, accuracy, save_model, set_optimizer
 from networks.resnet_big import SupConResNet, LinearClassifier
+import networks.vit as vits
+
 
 
 def parse_option():
@@ -169,10 +171,17 @@ def set_model(opt):
 
     print('\n[INFO] Setting model and criterion with linear classifier...')
 
-    model = SupConResNet(name=opt.model)
+    # model = SupConResNet(name=opt.model)
+    # Set the model
+    if "vit" in opt.model: #If model is ViT
+        model = vits.SupConViT(name=opt.model)
+        classifier = vits.LinearClassifierViT(name=opt.model, num_classes=opt.n_cls)
+    else: #If model is resnet
+        model = SupConResNet(name=opt.model)
+        classifier = LinearClassifier(name=opt.model, num_classes=opt.n_cls)
+
     criterion = torch.nn.CrossEntropyLoss()
 
-    classifier = LinearClassifier(name=opt.model, num_classes=opt.n_cls)
 
     ckpt = torch.load(opt.ckpt, map_location='cpu')
     state_dict = ckpt['model']
@@ -302,9 +311,22 @@ def cache_outputs(val_loader, model, classifier, opt):
     model.eval()
     classifier.eval()
     # caches for outputs
-    embeds = torch.empty((0, 2048))
+    print("Model used: ", opt.model)
+
+    # Define as dimensões de embeddings para diferentes arquiteturas
+    embedding_dims = {
+        "resnet50": 2048,
+        "vit_tiny": 192,
+        "vit_small": 384,
+        "vit_base": 768,
+        "vit_large": 1024,
+    }
+    
+    embedding_dim = embedding_dims.get(opt.model)  
+    embeds = torch.empty((0, embedding_dim))
     preds = torch.empty((0, opt.n_cls))
     labels = torch.empty((0,))
+
     with torch.no_grad():
         for b_images, b_labels in val_loader:
             b_images = b_images.float().cuda()
