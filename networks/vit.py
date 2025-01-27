@@ -7,9 +7,11 @@ DINO.
 https://github.com/facebookresearch/dino/blob/main/vision_transformer.py
 
 """
+
 import math
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from functools import partial
 from torch.nn.init import trunc_normal_
@@ -251,6 +253,7 @@ def vit_base(patch_size=16, **kwargs):
     
     return model
 
+
 def vit_large(patch_size=16, **kwargs):
     model = VisionTransformer(
         patch_size=patch_size, embed_dim=1024, depth=24, num_heads=16, mlp_ratio=4,
@@ -259,44 +262,58 @@ def vit_large(patch_size=16, **kwargs):
     return model
 
 
-# import timm
-# import torch.nn as nn
+model_dict = {
+    'vit_tiny': [vit_tiny, 192],
+    'vit_small': [vit_small, 384],
+    'vit_base': [vit_base, 768],
+    'vit_large': [vit_large, 1024],
+}
 
-# class VisionTransformer32(nn.Module):
-#     def __init__(self, 
-#                  img_size=224, 
-#                  patch_size=16, 
-#                  embed_dim=768, 
-#                  hidden_dim=2048, 
-#                  feat_dim=128, 
-#                  num_classes=0):
-        
-#         super(VisionTransformer32, self).__init__()
-#         # Configuração do Vision Transformer para imagens pequenas
-#         self.vit = timm.create_model(
-#             'vit_small_patch16_224',  # Modelo base
-#             pretrained=False,
-#             img_size=img_size,        # Imagem de entrada 32x32
-#             patch_size=patch_size,    # Tamanho do patch (4x4 ou 8x8)
-#             num_classes=0   # Sem cabeça de classificação padrão
-#         )
-#         # Camada de projeção adicional (2048 -> 128)
-#         self.projection_head = nn.Sequential(
-#             nn.Linear(embed_dim, hidden_dim),  # Projeção intermediária
-#             nn.ReLU(),
-#             nn.Linear(hidden_dim, feat_dim),        # Projeção final
-#             nn.ReLU()
-#         )
 
-#         # Camada final para classificação (128 -> 9 classes)
-#         self.classifier = nn.Linear(feat_dim, num_classes)
+class SupConViT(nn.Module):
+    """Vision Transformer backbone + projection head"""
 
-#     def forward(self, x):
-#         # Extração de embeddings do ViT
-#         vit_output = self.vit(x)  # Saída do class token
-#         # Projeção para espaço latente menor
-#         projected = self.projection_head(vit_output)
-#         # Classificação final
-#         features = self.classifier(projected)
+    def __init__(self, name='vit_tiny', head='mlp', feat_dim=192):
+        super(SupConViT, self).__init__()
+        model_fun, dim_in = model_dict[name]
+        self.encoder = model_fun()  # backbone vit model
+        if head == 'linear':
+            self.head = nn.Linear(dim_in, feat_dim)
+        elif head == 'mlp':
+            self.head = nn.Sequential(
+                nn.Linear(dim_in, dim_in),
+                nn.ReLU(inplace=True),
+                nn.Linear(dim_in, feat_dim)
+            )
+        else:
+            raise NotImplementedError(f"head not supported: {head}")
 
-#         return features
+    def forward(self, x):
+        feat = self.encoder(x)
+        feat = F.normalize(self.head(feat), dim=1) #normalized feature
+        return feat
+
+
+class SupCEViT(nn.Module):
+    """encoder + classifier"""
+
+    def __init__(self, name='vit_tiny', num_classes=10):
+        super(SupCEViT, self).__init__()
+        model_fun, dim_in = model_dict[name]
+        self.encoder = model_fun()
+        self.fc = nn.Linear(dim_in, num_classes)
+
+    def forward(self, x):
+        return self.fc(self.encoder(x))
+
+
+class LinearClassifierViT(nn.Module):
+    """Linear classifier"""
+
+    def __init__(self, name='vit_tiny', num_classes=10):
+        super(LinearClassifierViT, self).__init__()
+        _, feat_dim = model_dict[name]
+        self.fc = nn.Linear(feat_dim, num_classes)
+
+    def forward(self, features):
+        return self.fc(features)
