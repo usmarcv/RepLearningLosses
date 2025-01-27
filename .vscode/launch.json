@@ -1,32 +1,35 @@
-{
-    // Use o IntelliSense para saber mais sobre os atributos possíveis.
-    // Focalizar para exibir as descrições dos atributos existentes.
-    // Para obter mais informações, acesse: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-        {   
-            //Rodando stage1
-            "name": "Depurador do Python: main_supcon.py",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/main_supcon.py",
-            "console": "integratedTerminal",
-            "args": [
-                "--batch_size", "32",
-                "--size", "32",
-                "--epochs", "20",
-                "--model", "vit_tiny",
-                "--learning_rate", "0.001",
-                "--dataset", "path",
-                "--data_folder", "./PlatonicSolidsImages",
-                "--mean", "(0.4914, 0.4822, 0.4465)",
-                "--std", "(0.2675, 0.2565, 0.2761)",
-                "--method", "EpsSupInfoNCE"
-            ],
-            "justMyCode": false
-        }
-    ]
-}
+// {
+//     // Use o IntelliSense para saber mais sobre os atributos possíveis.
+//     // Focalizar para exibir as descrições dos atributos existentes.
+//     // Para obter mais informações, acesse: https://go.microsoft.com/fwlink/?linkid=830387
+//     "version": "0.2.0",
+//     "configurations": [
+//         {   
+//             //Rodando stage1
+//             "name": "Depurador do Python: main_supcon.py",
+//             "type": "debugpy",
+//             "request": "launch",
+//             "program": "${workspaceFolder}/main_supcon.py",
+//             "console": "integratedTerminal",
+//             "args": [
+//                 "--batch_size", "64",
+//                 "--size", "224",
+//                 "--epochs", "100",
+//                 "--model", "vit_tiny",
+//                 "--learning_rate", "0.001",
+//                 "--dataset", "path",
+//                 "--data_folder", "./PlatonicSolidsImages",
+//                 "--mean", "(0.4914, 0.4822, 0.4465)",
+//                 "--std", "(0.2675, 0.2565, 0.2761)",
+//                 "--method", "EpsSupInfoNCE",
+//                 "--num_workers", "18", //notebook dell
+//                 "--warm",
+//                 "--cosine"
+//             ],
+//             "justMyCode": false
+//         }
+//     ]
+// }
 
 // {
 //     // Use o IntelliSense para saber mais sobre os atributos possíveis.
@@ -41,17 +44,54 @@
 //             "program": "${workspaceFolder}/main_linear.py",
 //             "console": "integratedTerminal",
 //             "args": [
-//                 "--batch_size", "32",
-//                 "--epochs", "10",
+//                 "--batch_size", "64",
+//                 "--size", "224",
+//                 "--epochs", "100",
+//                 "--model", "vit_tiny",
 //                 "--n_cls", "9",
 //                 "--learning_rate", "0.001",
-//                 "--ckpt", "save/SupCon/path_models/SupCon_path_resnet50_lr_0.001_decay_0.0001_bsz_32_temp_0.07_trial_0_2025_01_22-10_39_22/last.pth",
+//                 "--ckpt", "save/SupCon/path_models/EpsSupInfoNCE_path_vit_tiny_lr_0.001_decay_0.0001_bsz_64_temp_0.07_trial_0_cosine_warm_2025_01_27-14_07_11/last.pth",
 //                 "--dataset", "path",
 //                 "--data_folder", "./PlatonicSolidsImages",
 //                 "--mean", "(0.4914, 0.4822, 0.4465)",
-//                 "--std", "(0.2675, 0.2565, 0.2761)"
+//                 "--std", "(0.2675, 0.2565, 0.2761)",
+//                    "--num_workers", "18" //notebook dell
+
 //             ],
 //             "justMyCode": false
 //         }
 //     ]
 // }
+
+
+{
+    // Use o IntelliSense para saber mais sobre os atributos possíveis.
+    // Focalizar para exibir as descrições dos atributos existentes.
+    // Para obter mais informações, acesse: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {   
+            //Rodando stage1
+            "name": "Depurador do Python: main_ce.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main_ce.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--batch_size", "64",
+                "--size", "224",
+                "--n_cls", "9",
+                "--epochs", "100",
+                "--model", "vit_tiny",
+                "--learning_rate", "0.001",
+                "--dataset", "path",
+                "--data_folder", "./PlatonicSolidsImages",
+                "--mean", "(0.4914, 0.4822, 0.4465)",
+                "--std", "(0.2675, 0.2565, 0.2761)",
+                "--num_workers", "18" //notebook dell
+                // "--method", "EpsSupInfoNCE"
+            ],
+            "justMyCode": false
+        }
+    ]
+}
