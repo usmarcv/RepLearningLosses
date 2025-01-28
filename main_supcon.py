@@ -49,10 +49,10 @@ def parse_option():
     parser.add_argument('--model', type=str, default='resnet50', choices=['resnet18', 'resnet50', 'resnet101', 
                                                                           'vit_tiny', 'vit_base', 'vit_small', 'vit_large'], 
                         help='Choose your backbone')
-    parser.add_argument('--n_cls', type=int, default=None, help='number of classes')
+    #parser.add_argument('--n_cls', type=int, default=None, help='Number of classes for your dataset')
     parser.add_argument('--dataset', type=str, default='cifar10',
                         choices=['cifar10', 'cifar100', 'imagenet100', 'imagenet', 'cifar2', 'aircraft', 'cars', 'path'], 
-                        help='dataset')
+                        help='Dataset')
     parser.add_argument('--valid_split', type=float, default=0,
                         help="proportion of train data to use for validation set")
     parser.add_argument('--mean', type=str,
@@ -160,14 +160,18 @@ def parse_option():
 
 
 def set_model(opt):
-    """Set the model for training
+    """_summary_
 
     Args:
         opt (_type_): _description_
 
+    Raises:
+        ValueError: _description_
+
     Returns:
         _type_: _description_
     """    
+
     print('\n[INFO] Setting model and criterion...')
 
     # # Set the model
