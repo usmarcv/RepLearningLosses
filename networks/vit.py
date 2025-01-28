@@ -15,7 +15,6 @@ import torch.nn.functional as F
 
 from functools import partial
 from torch.nn.init import trunc_normal_
-from timm.models.registry import register_model
 
 
 def drop_path(x, drop_prob: float = 0., training: bool = False):
