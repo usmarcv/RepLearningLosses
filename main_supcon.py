@@ -174,9 +174,16 @@ def set_model(opt):
 
     print('\n[INFO] Setting model and criterion...')
 
-    # # Set the model
-    if "vit" in opt.model: #If model is ViT
-        model = vits.SupConViT(name=opt.model)
+    # Set the model
+    # If model is ViT
+    if "vit_tiny" in opt.model: 
+        model = vits.SupConViT(name=opt.model, feat_dim=192)
+    elif "vit_small" in opt.model: 
+        model = vits.SupConViT(name=opt.model, feat_dim=384)
+    elif "vit_base" in opt.model: 
+        model = vits.SupConViT(name=opt.model, feat_dim=768)
+    elif "vit_large" in opt.model: 
+        model = vits.SupConViT(name=opt.model, feat_dim=1024)
     else: #If model is resnet
         model = SupConResNet(name=opt.model)
      
@@ -299,17 +306,20 @@ def valid(train_loader, valid_loader, epoch, opt, logger):
     """validation"""
     # loggger is given if valid_loader is validation set, otherwise is test set
     val_is_test = logger is None
-    model, criterion = set_model(opt
-                                 )
+    model, criterion = set_model(opt)
+    
     print("Model used: ", opt.model)
 
     # Define as dimensões de embeddings para diferentes arquiteturas
+    # Reajustar para não chamar toda vez
     embedding_dims = {
-        "resnet50": 128,
-        "vit_tiny": 192,
-        "vit_small": 384,
-        "vit_base": 768,
-        "vit_large": 1024,
+        'resnet18': 128,
+        'resnet101': 128,
+        'resnet50': 128,
+        'vit_tiny': 192,
+        'vit_small': 384,
+        'vit_base': 768,
+        'vit_large': 1024
     }
     
     embedding_dim = embedding_dims.get(opt.model)  
