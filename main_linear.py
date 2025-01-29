@@ -171,17 +171,25 @@ def set_model(opt):
 
     print('\n[INFO] Setting model and criterion with linear classifier...')
 
-    # model = SupConResNet(name=opt.model)
     # Set the model
-    if "vit" in opt.model: #If model is ViT
-        model = vits.SupConViT(name=opt.model)
+    # If model is ViT
+    if "vit_tiny" in opt.model: 
+        model = vits.SupConViT(name=opt.model, feat_dim=192)
+        classifier = vits.LinearClassifierViT(name=opt.model, num_classes=opt.n_cls)
+    elif "vit_small" in opt.model: 
+        model = vits.SupConViT(name=opt.model, feat_dim=384)
+        classifier = vits.LinearClassifierViT(name=opt.model, num_classes=opt.n_cls)
+    elif "vit_base" in opt.model: 
+        model = vits.SupConViT(name=opt.model, feat_dim=768)
+        classifier = vits.LinearClassifierViT(name=opt.model, num_classes=opt.n_cls)
+    elif "vit_large" in opt.model: 
+        model = vits.SupConViT(name=opt.model, feat_dim=1024),
         classifier = vits.LinearClassifierViT(name=opt.model, num_classes=opt.n_cls)
     else: #If model is resnet
         model = SupConResNet(name=opt.model)
         classifier = LinearClassifier(name=opt.model, num_classes=opt.n_cls)
 
     criterion = torch.nn.CrossEntropyLoss()
-
 
     ckpt = torch.load(opt.ckpt, map_location='cpu')
     state_dict = ckpt['model']
