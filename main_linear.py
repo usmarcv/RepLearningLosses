@@ -323,11 +323,13 @@ def cache_outputs(val_loader, model, classifier, opt):
 
     # Define as dimensões de embeddings para diferentes arquiteturas
     embedding_dims = {
-        "resnet50": 2048,
-        "vit_tiny": 192,
-        "vit_small": 384,
-        "vit_base": 768,
-        "vit_large": 1024,
+        'resnet18': 128,
+        'resnet101': 128,
+        'resnet50': 128,
+        'vit_tiny': 192,
+        'vit_small': 384,
+        'vit_base': 768,
+        'vit_large': 1024
     }
     
     embedding_dim = embedding_dims.get(opt.model)  
