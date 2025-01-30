@@ -1,35 +1,36 @@
-// {
-//     // Use o IntelliSense para saber mais sobre os atributos possíveis.
-//     // Focalizar para exibir as descrições dos atributos existentes.
-//     // Para obter mais informações, acesse: https://go.microsoft.com/fwlink/?linkid=830387
-//     "version": "0.2.0",
-//     "configurations": [
-//         {   
-//             //Rodando stage1
-//             "name": "Depurador do Python: main_supcon.py",
-//             "type": "debugpy",
-//             "request": "launch",
-//             "program": "${workspaceFolder}/main_supcon.py",
-//             "console": "integratedTerminal",
-//             "args": [
-//                 "--batch_size", "64",
-//                 "--size", "224",
-//                 "--epochs", "100",
-//                 "--model", "vit_tiny",
-//                 "--learning_rate", "0.001",
-//                 "--dataset", "path",
-//                 "--data_folder", "./PlatonicSolidsImages",
-//                 "--mean", "(0.4914, 0.4822, 0.4465)",
-//                 "--std", "(0.2675, 0.2565, 0.2761)",
-//                 "--method", "EpsSupInfoNCE",
-//                 "--num_workers", "18", //notebook dell
-//                 "--warm",
-//                 "--cosine"
-//             ],
-//             "justMyCode": false
-//         }
-//     ]
-// }
+{
+    // Use o IntelliSense para saber mais sobre os atributos possíveis.
+    // Focalizar para exibir as descrições dos atributos existentes.
+    // Para obter mais informações, acesse: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {   
+            //Rodando stage1
+            //Testando vit_small para adaptar em dinov1 (stage) com a dinohead utilizando a simclr
+            "name": "Depurador do Python: main_supcon.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main_supcon.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--batch_size", "16",
+                "--size", "224",
+                "--epochs", "2",
+                "--model", "vit_small",
+                "--learning_rate", "0.001",
+                "--dataset", "path",
+                "--data_folder", "./PlatonicSolidsImages",
+                "--mean", "(0.4914, 0.4822, 0.4465)",
+                "--std", "(0.2675, 0.2565, 0.2761)",
+                "--method", "SimCLR",
+                "--num_workers", "18", //notebook dell
+                "--warm",
+                "--cosine"
+            ],
+            "justMyCode": false
+        }
+    ]
+}
 
 // {
 //     // Use o IntelliSense para saber mais sobre os atributos possíveis.
@@ -64,34 +65,34 @@
 // }
 
 
-{
-    // Use o IntelliSense para saber mais sobre os atributos possíveis.
-    // Focalizar para exibir as descrições dos atributos existentes.
-    // Para obter mais informações, acesse: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-        {   
-            //Rodando stage1
-            "name": "Depurador do Python: main_ce.py",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/main_ce.py",
-            "console": "integratedTerminal",
-            "args": [
-                "--batch_size", "64",
-                "--size", "224",
-                "--n_cls", "9",
-                "--epochs", "100",
-                "--model", "vit_tiny",
-                "--learning_rate", "0.001",
-                "--dataset", "path",
-                "--data_folder", "./PlatonicSolidsImages",
-                "--mean", "(0.4914, 0.4822, 0.4465)",
-                "--std", "(0.2675, 0.2565, 0.2761)",
-                "--num_workers", "18" //notebook dell
-                // "--method", "EpsSupInfoNCE"
-            ],
-            "justMyCode": false
-        }
-    ]
-}
+// {
+//     // Use o IntelliSense para saber mais sobre os atributos possíveis.
+//     // Focalizar para exibir as descrições dos atributos existentes.
+//     // Para obter mais informações, acesse: https://go.microsoft.com/fwlink/?linkid=830387
+//     "version": "0.2.0",
+//     "configurations": [
+//         {   
+//             //Rodando stage1
+//             "name": "Depurador do Python: main_ce.py",
+//             "type": "debugpy",
+//             "request": "launch",
+//             "program": "${workspaceFolder}/main_ce.py",
+//             "console": "integratedTerminal",
+//             "args": [
+//                 "--batch_size", "64",
+//                 "--size", "224",
+//                 "--n_cls", "9",
+//                 "--epochs", "100",
+//                 "--model", "vit_tiny",
+//                 "--learning_rate", "0.001",
+//                 "--dataset", "path",
+//                 "--data_folder", "./PlatonicSolidsImages",
+//                 "--mean", "(0.4914, 0.4822, 0.4465)",
+//                 "--std", "(0.2675, 0.2565, 0.2761)",
+//                 "--num_workers", "18" //notebook dell
+//                 // "--method", "EpsSupInfoNCE"
+//             ],
+//             "justMyCode": false
+//         }
+//     ]
+// }
