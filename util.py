@@ -3,6 +3,7 @@ from __future__ import print_function
 import math
 from typing import Sequence
 
+import os
 import numpy as np
 import torch
 import torch.optim as optim
@@ -125,49 +126,62 @@ def save_model(model, optimizer, opt, epoch, save_file):
 
 
 #DINO Repository copy-paste: https://raw.githubusercontent.com/facebookresearch/dino/refs/heads/main/main_dino.py
-class DataAugmentationDINO(object):
-    def __init__(self, global_crops_scale, local_crops_scale, local_crops_number):
-        flip_and_color_jitter = transforms.Compose([
-            transforms.RandomHorizontalFlip(p=0.5),
-            transforms.RandomApply(
-                [transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.2, hue=0.1)],
-                p=0.8
-            ),
-            transforms.RandomGrayscale(p=0.2),
-        ])
-        normalize = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
-        ])
+def load_pretrained_weights(model, pretrained_weights, checkpoint_key, model_name, patch_size):
+    if os.path.isfile(pretrained_weights):
+        state_dict = torch.load(pretrained_weights, map_location="cpu")
+        if checkpoint_key is not None and checkpoint_key in state_dict:
+            print(f"Take key {checkpoint_key} in provided checkpoint dict")
+            state_dict = state_dict[checkpoint_key]
+        # remove `module.` prefix
+        state_dict = {k.replace("module.", ""): v for k, v in state_dict.items()}
+        # remove `backbone.` prefix induced by multicrop wrapper
+        state_dict = {k.replace("backbone.", ""): v for k, v in state_dict.items()}
+        msg = model.load_state_dict(state_dict, strict=False)
+        print('Pretrained weights found at {} and loaded with msg: {}'.format(pretrained_weights, msg))
+    else:
+        print("Please use the `--pretrained_weights` argument to indicate the path of the checkpoint to evaluate.")
+        url = None
+        if model_name == "vit_small" and patch_size == 16:
+            url = "dino_deitsmall16_pretrain/dino_deitsmall16_pretrain.pth"
+        elif model_name == "vit_small" and patch_size == 8:
+            url = "dino_deitsmall8_pretrain/dino_deitsmall8_pretrain.pth"
+        elif model_name == "vit_base" and patch_size == 16:
+            url = "dino_vitbase16_pretrain/dino_vitbase16_pretrain.pth"
+        elif model_name == "vit_base" and patch_size == 8:
+            url = "dino_vitbase8_pretrain/dino_vitbase8_pretrain.pth"
+        elif model_name == "xcit_small_12_p16":
+            url = "dino_xcit_small_12_p16_pretrain/dino_xcit_small_12_p16_pretrain.pth"
+        elif model_name == "xcit_small_12_p8":
+            url = "dino_xcit_small_12_p8_pretrain/dino_xcit_small_12_p8_pretrain.pth"
+        elif model_name == "xcit_medium_24_p16":
+            url = "dino_xcit_medium_24_p16_pretrain/dino_xcit_medium_24_p16_pretrain.pth"
+        elif model_name == "xcit_medium_24_p8":
+            url = "dino_xcit_medium_24_p8_pretrain/dino_xcit_medium_24_p8_pretrain.pth"
+        elif model_name == "resnet50":
+            url = "dino_resnet50_pretrain/dino_resnet50_pretrain.pth"
+        if url is not None:
+            print("Since no pretrained weights have been provided, we load the reference pretrained DINO weights.")
+            state_dict = torch.hub.load_state_dict_from_url(url="https://dl.fbaipublicfiles.com/dino/" + url)
+            model.load_state_dict(state_dict, strict=True)
+        else:
+            print("There is no reference weights available for this model => We use random weights.")
 
-        # first global crop
-        self.global_transfo1 = transforms.Compose([
-            transforms.RandomResizedCrop(224, scale=global_crops_scale, interpolation=Image.BICUBIC),
-            flip_and_color_jitter,
-            utils.GaussianBlur(1.0),
-            normalize,
-        ])
-        # second global crop
-        self.global_transfo2 = transforms.Compose([
-            transforms.RandomResizedCrop(224, scale=global_crops_scale, interpolation=Image.BICUBIC),
-            flip_and_color_jitter,
-            utils.GaussianBlur(0.1),
-            utils.Solarization(0.2),
-            normalize,
-        ])
-        # transformation for the local small crops
-        self.local_crops_number = local_crops_number
-        self.local_transfo = transforms.Compose([
-            transforms.RandomResizedCrop(96, scale=local_crops_scale, interpolation=Image.BICUBIC),
-            flip_and_color_jitter,
-            utils.GaussianBlur(p=0.5),
-            normalize,
-        ])
 
-    def __call__(self, image):
-        crops = []
-        crops.append(self.global_transfo1(image))
-        crops.append(self.global_transfo2(image))
-        for _ in range(self.local_crops_number):
-            crops.append(self.local_transfo(image))
-        return crops
+def load_pretrained_linear_weights(linear_classifier, model_name, patch_size):
+    url = None
+    if model_name == "vit_small" and patch_size == 16:
+        url = "dino_deitsmall16_pretrain/dino_deitsmall16_linearweights.pth"
+    elif model_name == "vit_small" and patch_size == 8:
+        url = "dino_deitsmall8_pretrain/dino_deitsmall8_linearweights.pth"
+    elif model_name == "vit_base" and patch_size == 16:
+        url = "dino_vitbase16_pretrain/dino_vitbase16_linearweights.pth"
+    elif model_name == "vit_base" and patch_size == 8:
+        url = "dino_vitbase8_pretrain/dino_vitbase8_linearweights.pth"
+    elif model_name == "resnet50":
+        url = "dino_resnet50_pretrain/dino_resnet50_linearweights.pth"
+    if url is not None:
+        print("We load the reference pretrained linear weights.")
+        state_dict = torch.hub.load_state_dict_from_url(url="https://dl.fbaipublicfiles.com/dino/" + url)["state_dict"]
+        linear_classifier.load_state_dict(state_dict, strict=True)
+    else:
+        print("We use random linear weights.")

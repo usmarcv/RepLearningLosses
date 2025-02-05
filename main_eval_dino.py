@@ -27,9 +27,11 @@ from torchvision import models as torchvision_models
 
 import utils
 import networks.vit as vits
+from losses import SupConLoss, MultiviewSINCERELoss, MultiviewEpsSupInfoNCELoss, InfoNCELoss
 
 
 def eval_linear(args):
+
     utils.init_distributed_mode(args)
     print("git:\n  {}\n".format(utils.get_sha()))
     print("\n".join("%s: %s" % (k, str(v)) for k, v in sorted(dict(vars(args)).items())))
@@ -278,5 +280,10 @@ if __name__ == '__main__':
     parser.add_argument('--output_dir', default=".", help='Path to save logs and checkpoints')
     parser.add_argument('--num_labels', default=1000, type=int, help='Number of labels for linear classifier')
     parser.add_argument('--evaluate', dest='evaluate', action='store_true', help='evaluate model on validation set')
+
+    parser.add_argument('--method', type=str, default='SINCERE',
+                            choices=['SINCERE', 'SupCon', 'EpsSupInfoNCE', 'SimCLR', 'InfoNCE'],
+                        help='Choose your contrastive method')  
+  
     args = parser.parse_args()
     eval_linear(args)

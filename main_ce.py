@@ -17,8 +17,10 @@ from torchvision import transforms, datasets
 import sampler
 from util import AverageMeter, DoubleTransform, SubsetWithTargets, TwoCropTransform
 from util import adjust_learning_rate, warmup_learning_rate, accuracy, set_optimizer, save_model
+
 from networks.resnet_big import SupCEResNet
 import networks.vit as vits
+import torchvision.models as models
 
 
 def parse_option():
@@ -393,7 +395,8 @@ def set_model(opt):
     if "vit" in opt.model: #If model is ViT
         model = vits.SupCEViT(name=opt.model, num_classes=opt.n_cls)
         # classifier = vits.LinearClassifierViT(name=opt.model, num_classes=opt.n_cls)
-    else: 
+    else:
+
         model = SupCEResNet(name=opt.model, num_classes=opt.n_cls)
     
     
