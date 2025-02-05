@@ -4,6 +4,7 @@ PlatonicSolidsImages/
 save_giva_Servers/
 oxford-iiit-pet/
 save_only_selecteds/
+checkpoints/
 
 #chekpoints torch and tensorboard
 *.pth
