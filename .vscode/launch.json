@@ -36,48 +36,6 @@
 
 // python -m torch.distributed.launch --nproc_per_node=8 main_dino.py --arch vit_small --data_path /path/to/imagenet/train --output_dir /path/to/saving_dir
 
-{
-    // Use o IntelliSense para saber mais sobre os atributos possíveis.
-    // Focalizar para exibir as descrições dos atributos existentes.
-    // Para obter mais informações, acesse: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-        {   
-            //Testando DINOv1 - lembrar de treinar com SGD
-            "name": "Depurador do Python: main_eval_dino.py",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/main_eval_dino.py",
-            "console": "integratedTerminal",
-            "args": [
-                "--batch_size", "16",
-                // "--size", "224",
-                "--epochs", "10",
-                "--arch", "vit_small",
-                "--patch_size", "16",
-                "--checkpoint_key", "student",
-                // "--learning_rate", "0.001",
-                "--data_path", "PlatonicSolidsImages/",
-                "--pretrained_weights", "save/DINOv1/checkpoint0040.pth",
-                // "--data_folder", "./PlatonicSolidsImages",
-                // "--mean", "(0.4914, 0.4822, 0.4465)",
-                // "--std", "(0.2675, 0.2565, 0.2761)",
-                // "--method", "SimCLR",
-                "--num_workers", "18", //notebook dell
-                // "--warm",
-                // "--cosine"
-                "--output_dir", "save/DINOv1"
-                // "--optimizer", "sgd"
-            ],
-            "justMyCode": false
-        }
-    ]
-}
-
-
-
-// ====================================================================================================
-
 // {
 //     // Use o IntelliSense para saber mais sobre os atributos possíveis.
 //     // Focalizar para exibir as descrições dos atributos existentes.
@@ -85,32 +43,74 @@
 //     "version": "0.2.0",
 //     "configurations": [
 //         {   
-//             //Rodando stage1
-//             //Testando vit_small para adaptar em dinov1 (stage) com a dinohead utilizando a simclr
-//             "name": "Depurador do Python: main_supcon.py",
+//             //Testando DINOv1 - lembrar de treinar com SGD
+//             "name": "Depurador do Python: main_eval_dino.py",
 //             "type": "debugpy",
 //             "request": "launch",
-//             "program": "${workspaceFolder}/main_supcon.py",
+//             "program": "${workspaceFolder}/main_eval_dino.py",
 //             "console": "integratedTerminal",
 //             "args": [
 //                 "--batch_size", "16",
-//                 "--size", "224",
-//                 "--epochs", "50",
-//                 "--model", "vit_small",
-//                 "--learning_rate", "0.001",
-//                 "--dataset", "path",
-//                 "--data_folder", "./PlatonicSolidsImages",
-//                 "--mean", "(0.4914, 0.4822, 0.4465)",
-//                 "--std", "(0.2675, 0.2565, 0.2761)",
-//                 "--method", "SimCLR",
-//                 "--num_workers", "18", //notebook dell
-//                 "--warm",
-//                 "--cosine"
+//                 // "--size", "224",
+//                 "--epochs", "5",
+//                 "--arch", "vit_small",
+//                 "--patch_size", "16",
+//                 "--checkpoint_key", "student",
+//                 // "--learning_rate", "0.001",
+//                 "--data_path", "PlatonicSolidsImages/",
+//                 "--pretrained_weights", "checkpoints/dino_deitsmall16_pretrain_full_checkpoint.pth",
+//                 // "--data_folder", "./PlatonicSolidsImages",
+//                 // "--mean", "(0.4914, 0.4822, 0.4465)",
+//                 // "--std", "(0.2675, 0.2565, 0.2761)",
+//                 // "--method", "SimCLR",
+//                 "--num_workers", "16", //notebook dell num 18
+//                 // "--warm",
+//                 // "--cosine"
+//                 "--output_dir", "save/DINOv1"
+//                 // "--optimizer", "sgd"
 //             ],
 //             "justMyCode": false
 //         }
 //     ]
 // }
+
+
+
+// ====================================================================================================
+
+{
+    // Use o IntelliSense para saber mais sobre os atributos possíveis.
+    // Focalizar para exibir as descrições dos atributos existentes.
+    // Para obter mais informações, acesse: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {   
+            //Rodando stage1
+            //Testando vit_small para adaptar em dinov1 (stage) com a dinohead utilizando a simclr
+            "name": "Depurador do Python: main_supcon.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main_supcon.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--batch_size", "16",
+                "--size", "32",
+                "--epochs", "50",
+                "--model", "resnet50",
+                "--learning_rate", "0.001",
+                "--dataset", "path",
+                "--data_folder", "./PlatonicSolidsImages",
+                "--mean", "(0.4914, 0.4822, 0.4465)",
+                "--std", "(0.2675, 0.2565, 0.2761)",
+                "--method", "SupCon",
+                "--num_workers", "16", //notebook dell
+                "--warm",
+                "--cosine"
+            ],
+            "justMyCode": false
+        }
+    ]
+}
 
 // {
 //     // Use o IntelliSense para saber mais sobre os atributos possíveis.
