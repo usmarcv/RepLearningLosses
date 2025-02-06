@@ -94,9 +94,10 @@
             "console": "integratedTerminal",
             "args": [
                 "--batch_size", "32",
-                "--size", "32",
+                "--size", "224",
                 "--epochs", "10",
-                "--model", "resnet50",
+                "--model", "dino_vit_small_p_16",
+                "--checkpoint_key", "student",
                 "--learning_rate", "0.001",
                 "--dataset", "path",
                 "--data_folder", "./PlatonicSolidsImages",

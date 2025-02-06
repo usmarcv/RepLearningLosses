@@ -229,10 +229,10 @@ class VisionTransformer(nn.Module):
         return output
 
 
-def vit_tiny(patch_size=16, embed_dim=192, **kwargs):
-    return VisionTransformer(patch_size=patch_size, embed_dim=embed_dim, depth=12, num_heads=3, 
-                             mlp_ratio=4, qkv_bias=True, 
-                             norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
+# def vit_tiny(patch_size=16, embed_dim=192, **kwargs):
+#     return VisionTransformer(patch_size=patch_size, embed_dim=embed_dim, depth=12, num_heads=3, 
+#                              mlp_ratio=4, qkv_bias=True, 
+#                              norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
 
 
 def vit_small(patch_size=16, embed_dim=384, **kwargs):
@@ -247,17 +247,15 @@ def vit_base(patch_size=16, embed_dim=768, **kwargs):
                             norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
 
 
-def vit_large(patch_size=16, embed_dim=1024, **kwargs):
-    return VisionTransformer(patch_size=patch_size, embed_dim=embed_dim, depth=24, num_heads=16, 
-                             mlp_ratio=4, qkv_bias=True, 
-                             norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
+# def vit_large(patch_size=16, embed_dim=1024, **kwargs):
+#     return VisionTransformer(patch_size=patch_size, embed_dim=embed_dim, depth=24, num_heads=16, 
+#                              mlp_ratio=4, qkv_bias=True, 
+#                              norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     
 
 model_dict = {
-    'vit_tiny': [vit_tiny, 192],
     'vit_small': [vit_small, 384],
-    'vit_base': [vit_base, 768],
-    'vit_large': [vit_large, 1024],
+    'vit_base': [vit_base, 768]
 }
 
 
@@ -300,7 +298,7 @@ class DINOHead(nn.Module):
 class SupConViT(nn.Module):
     """Vision Transformer backbone + projection head"""
 
-    def __init__(self, name='vit_tiny', head='mlp', feat_dim=192):
+    def __init__(self, name='vit_small', head='mlp', feat_dim=192):
         super(SupConViT, self).__init__()
         model_fun, dim_in = model_dict[name]
         self.encoder = model_fun()  # backbone vit model
@@ -324,7 +322,7 @@ class SupConViT(nn.Module):
 class SupCEViT(nn.Module):
     """encoder + classifier"""
 
-    def __init__(self, name='vit_tiny', num_classes=10):
+    def __init__(self, name='vit_small', num_classes=10):
         super(SupCEViT, self).__init__()
         model_fun, dim_in = model_dict[name]
         self.encoder = model_fun()
@@ -337,7 +335,7 @@ class SupCEViT(nn.Module):
 class LinearClassifierViT(nn.Module):
     """Linear classifier"""
 
-    def __init__(self, name='vit_tiny', num_classes=10):
+    def __init__(self, name='vit_small', num_classes=10):
         super(LinearClassifierViT, self).__init__()
         _, feat_dim = model_dict[name]
         self.fc = nn.Linear(feat_dim, num_classes)

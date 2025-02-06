@@ -18,9 +18,10 @@ import sampler
 from util import AverageMeter, DoubleTransform, SubsetWithTargets, TwoCropTransform
 from util import adjust_learning_rate, warmup_learning_rate, accuracy, set_optimizer, save_model
 
-from networks.resnet_big import SupCEResNet
+
 import networks.vit as vits
-import torchvision.models as models
+from networks.resnet_big import SupCEResNet
+from networks.dino_models import DataAugmentationDINO
 
 
 def parse_option():
@@ -315,6 +316,20 @@ def set_loader(opt, contrast_trans=False, for_test=False):
                                            download=True)
         test_dataset.targets = test_dataset._labels
     elif opt.dataset == 'imagenet100' or opt.dataset == 'imagenet' or opt.dataset == 'path':
+
+        if "dino" in opt.model:
+            transform_dino = DataAugmentationDINO(
+                global_crops_scale = (0.4, 1.),
+                local_crops_scale = (0.05, 0.4),
+                local_crops_number = 8,
+            )
+            train_dataset = datasets.ImageFolder(root=opt.data_folder + "/train/",
+                                                 transform=transform_dino)
+            test_dataset = datasets.ImageFolder(root=opt.data_folder + "/test/",
+                                                 transform=transform_dino)
+            
+        #=============================
+        
         train_dataset = datasets.ImageFolder(root=opt.data_folder + "/train/",
                                              transform=train_transform)
         test_dataset = datasets.ImageFolder(root=opt.data_folder + "/test/",
