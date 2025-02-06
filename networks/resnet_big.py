@@ -82,8 +82,8 @@ class ResNet(nn.Module):
     def __init__(self, block, num_blocks, in_channel=3, zero_init_residual=False):
         super(ResNet, self).__init__()
         self.in_planes = 64
-        #kernel size with 7x7 because imagenet images are 224x224
-        self.conv1 = nn.Conv2d(in_channel, 64, kernel_size=3, stride=1, padding=1,
+        #kernel size with 7x7 because ImageNet images are 224x224
+        self.conv1 = nn.Conv2d(in_channel, 64, kernel_size=7, stride=1, padding=1,
                                bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=1)

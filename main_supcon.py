@@ -13,9 +13,14 @@ from torch.utils.tensorboard import SummaryWriter
 from contrast_acc import contrastive_acc, test_contrastive_acc, test_contrastive_acc_knn
 from main_ce import set_loader
 from util import AverageMeter, adjust_learning_rate, warmup_learning_rate, set_optimizer, save_model
-from networks.resnet_big import SupConResNet
-from losses import SupConLoss, MultiviewSINCERELoss, MultiviewEpsSupInfoNCELoss, InfoNCELoss
+
+#Networks
 import networks.vit as vits
+from networks.resnet_big import SupConResNet
+from torchvision.models import resnet50, ResNet50_Weights
+
+#Losses
+from losses import SupConLoss, MultiviewSINCERELoss, MultiviewEpsSupInfoNCELoss, InfoNCELoss
 
 
 def parse_option():
@@ -185,8 +190,11 @@ def set_model(opt):
     elif "vit_large" in opt.model: 
         model = vits.SupConViT(name=opt.model, feat_dim=1024)
     else: #If model is resnet
+        pretrained_net = resnet50(weights=ResNet50_Weights.DEFAULT)
+        del pretrained_net.fc
+        pretrained_net.fc = torch.nn.Identity()
         model = SupConResNet(name=opt.model)
-     
+        model.encoder.load_state_dict(pretrained_net.state_dict(), strict=False)
 
     #Set criterion 
     if opt.method == 'SINCERE':

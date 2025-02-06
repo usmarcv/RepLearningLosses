@@ -93,7 +93,7 @@
             "program": "${workspaceFolder}/main_supcon.py",
             "console": "integratedTerminal",
             "args": [
-                "--batch_size", "16",
+                "--batch_size", "32",
                 "--size", "32",
                 "--epochs", "10",
                 "--model", "resnet50",
