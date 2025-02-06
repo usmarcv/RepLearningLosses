@@ -16,6 +16,7 @@ from util import AverageMeter, adjust_learning_rate, warmup_learning_rate, set_o
 
 #Networks
 import networks.vit as vits
+from networks.dino_models import load_dino_model, download_checkpoint, MultiCropWrapper
 from networks.resnet_big import SupConResNet
 from torchvision.models import resnet50, ResNet50_Weights
 
@@ -51,8 +52,10 @@ def parse_option():
                         help='momentum')
 
     # model dataset
-    parser.add_argument('--model', type=str, default='resnet50', choices=['resnet18', 'resnet50', 'resnet101', 
-                                                                          'vit_tiny', 'vit_base', 'vit_small', 'vit_large'], 
+    parser.add_argument('--model', type=str, default='resnet50', choices=['resnet50', 
+                                                                          'vit_small', 'vit_base',
+                                                                          'dino_vit_small_p_16', 'dino_vit_small_p_8', 
+                                                                          'dino_vit_base_p_16', 'dino_vit_base_p_8'], 
                         help='Choose your backbone')
     #parser.add_argument('--n_cls', type=int, default=None, help='Number of classes for your dataset')
     parser.add_argument('--dataset', type=str, default='cifar10',
@@ -79,6 +82,11 @@ def parse_option():
     parser.add_argument('--method', type=str, default='SINCERE',
                         choices=['SINCERE', 'SupCon', 'EpsSupInfoNCE', 'SimCLR', 'InfoNCE'],
                         help='Choose your contrastive method')
+    
+    parser.add_argument("--checkpoint_key", type=str, default="student", 
+                    choices=["teacher", "student"],
+                    help="Escolha entre 'teacher' ou 'student' ao carregar um checkpoint DINO.")
+
 
     # temperature
     parser.add_argument('--temp', type=float, default=0.07,
@@ -179,23 +187,40 @@ def set_model(opt):
 
     print('\n[INFO] Setting model and criterion...')
 
+
+    DINO_MODELS = {
+        "dino_vit_small_p_16": "https://dl.fbaipublicfiles.com/dino/dino_deitsmall16_pretrain/dino_deitsmall16_pretrain_full_checkpoint.pth",
+        "dino_vit_small_p_8": "https://dl.fbaipublicfiles.com/dino/dino_deitsmall8_pretrain/dino_deitsmall8_pretrain_full_checkpoint.pth",
+        "dino_vit_base_p_16": "https://dl.fbaipublicfiles.com/dino/dino_vitbase16_pretrain/dino_vitbase16_pretrain_full_checkpoint.pth",
+        "dino_vit_base_p_8": "https://dl.fbaipublicfiles.com/dino/dino_vitbase8_pretrain/dino_vitbase8_pretrain_full_checkpoint.pth"
+    }
+
     # Set the model
-    # If model is ViT
-    if "vit_tiny" in opt.model: 
-        model = vits.SupConViT(name=opt.model, feat_dim=192)
-    elif "vit_small" in opt.model: 
+    model = None
+
+    # ViT model
+    if opt.model == "vit_small": 
         model = vits.SupConViT(name=opt.model, feat_dim=384)
-    elif "vit_base" in opt.model: 
+    elif opt.model == "vit_base":
         model = vits.SupConViT(name=opt.model, feat_dim=768)
-    elif "vit_large" in opt.model: 
-        model = vits.SupConViT(name=opt.model, feat_dim=1024)
-    else: #If model is resnet
+
+    #ResNet model    
+    elif "resnet50" in opt.model: 
         pretrained_net = resnet50(weights=ResNet50_Weights.DEFAULT)
-        del pretrained_net.fc
+        # del pretrained_net.fc
         pretrained_net.fc = torch.nn.Identity()
         model = SupConResNet(name=opt.model)
         model.encoder.load_state_dict(pretrained_net.state_dict(), strict=False)
 
+    elif opt.model in DINO_MODELS:
+        checkpoint_path = download_checkpoint(opt.model)    
+        if checkpoint_path is None:
+            raise FileNotFoundError(f"[ERROR] Não foi possível encontrar o checkpoint {opt.model}.")        
+        model = load_dino_model(opt.model, checkpoint_path, opt.checkpoint_key)
+        # model = MultiCropWrapper(model)
+    else:
+        raise ValueError(f"Choose model [{opt.model}] not supported.")
+    
     #Set criterion 
     if opt.method == 'SINCERE':
         # original implementation does not set base_temperature, but setting here to make
@@ -321,13 +346,14 @@ def valid(train_loader, valid_loader, epoch, opt, logger):
     # Define as dimensões de embeddings para diferentes arquiteturas
     # Reajustar para não chamar toda vez
     embedding_dims = {
-        'resnet18': 128,
-        'resnet101': 128,
         'resnet50': 128,
-        'vit_tiny': 192,
         'vit_small': 384,
         'vit_base': 768,
-        'vit_large': 1024
+        'vit_large': 1024,
+        "dino_vit_small_p_16": 384,
+        "dino_vit_small_p_8": 384,
+        "dino_vit_base_p_16": 768,
+        "dino_vit_base_p_8": 768
     }
     
     embedding_dim = embedding_dims.get(opt.model)  
