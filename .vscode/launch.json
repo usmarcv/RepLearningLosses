@@ -78,41 +78,6 @@
 
 // ====================================================================================================
 
-// {
-//     // Use o IntelliSense para saber mais sobre os atributos possíveis.
-//     // Focalizar para exibir as descrições dos atributos existentes.
-//     // Para obter mais informações, acesse: https://go.microsoft.com/fwlink/?linkid=830387
-//     "version": "0.2.0",
-//     "configurations": [
-//         {   
-//             //Rodando stage1
-//             //Testando vit_small para adaptar em dinov1 (stage) com a dinohead utilizando a simclr
-//             "name": "Depurador do Python: main_supcon.py",
-//             "type": "debugpy",
-//             "request": "launch",
-//             "program": "${workspaceFolder}/main_supcon.py",
-//             "console": "integratedTerminal",
-//             "args": [
-//                 "--batch_size", "32",
-//                 "--size", "224",
-//                 "--epochs", "10",
-//                 "--model", "dino_vit_small_p_16",
-//                 // "--checkpoint_key", "student",
-//                 "--learning_rate", "0.001",
-//                 "--dataset", "path",
-//                 "--data_folder", "./PlatonicSolidsImages",
-//                 "--mean", "(0.4914, 0.4822, 0.4465)",
-//                 "--std", "(0.2675, 0.2565, 0.2761)",
-//                 "--method", "SimCLR",
-//                 "--num_workers", "16", //notebook dell
-//                 "--warm",
-//                 "--cosine"
-//             ],
-//             "justMyCode": false
-//         }
-//     ]
-// }
-
 {
     // Use o IntelliSense para saber mais sobre os atributos possíveis.
     // Focalizar para exibir as descrições dos atributos existentes.
@@ -122,33 +87,68 @@
         {   
             //Rodando stage1
             //Testando vit_small para adaptar em dinov1 (stage) com a dinohead utilizando a simclr
-            "name": "Depurador do Python: main_linear.py",
+            "name": "Depurador do Python: main_supcon.py",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/main_linear.py",
+            "program": "${workspaceFolder}/main_supcon.py",
             "console": "integratedTerminal",
             "args": [
                 "--batch_size", "32",
                 "--size", "224",
-                "--n_cls", "9",
                 "--epochs", "10",
-                "--model", "dino_vit_small_p_16",
-                "--ckpt", "save/SupCon/path_models/SimCLR_path_dino_vit_small_p_16_lr_0.001_decay_0.0001_bsz_32_temp_0.07_trial_0_cosine_warm_2025_02_07-15_34_17/last.pth",
+                "--model", "vit_small",
                 // "--checkpoint_key", "student",
                 "--learning_rate", "0.001",
                 "--dataset", "path",
                 "--data_folder", "./PlatonicSolidsImages",
                 "--mean", "(0.4914, 0.4822, 0.4465)",
                 "--std", "(0.2675, 0.2565, 0.2761)",
-                // "--method", "SupCon",
-                "--num_workers", "16" //notebook dell
-                // "--warm",
-                // "--cosine"
+                "--method", "SINCERE",
+                "--num_workers", "16", //notebook dell
+                "--warm",
+                "--cosine"
             ],
             "justMyCode": false
         }
     ]
 }
+
+// {
+//     // Use o IntelliSense para saber mais sobre os atributos possíveis.
+//     // Focalizar para exibir as descrições dos atributos existentes.
+//     // Para obter mais informações, acesse: https://go.microsoft.com/fwlink/?linkid=830387
+//     "version": "0.2.0",
+//     "configurations": [
+//         {   
+//             //Rodando stage1
+//             //Testando vit_small para adaptar em dinov1 (stage) com a dinohead utilizando a simclr
+//             "name": "Depurador do Python: main_linear.py",
+//             "type": "debugpy",
+//             "request": "launch",
+//             "program": "${workspaceFolder}/main_linear.py",
+//             "console": "integratedTerminal",
+//             "args": [
+//                 "--batch_size", "32",
+//                 "--size", "224",
+//                 "--n_cls", "9",
+//                 "--epochs", "10",
+//                 "--model", "vit_small",
+//                 "--ckpt", "save/SupCon/path_models/SupCon_path_vit_small_lr_0.001_decay_0.0001_bsz_32_temp_0.07_trial_0_cosine_warm_2025_02_07-16_12_05/last.pth",
+//                 // "--checkpoint_key", "student",
+//                 "--learning_rate", "0.001",
+//                 "--dataset", "path",
+//                 "--data_folder", "./PlatonicSolidsImages",
+//                 "--mean", "(0.4914, 0.4822, 0.4465)",
+//                 "--std", "(0.2675, 0.2565, 0.2761)",
+//                 // "--method", "SupCon",
+//                 "--num_workers", "16" //notebook dell
+//                 // "--warm",
+//                 // "--cosine"
+//             ],
+//             "justMyCode": false
+//         }
+//     ]
+// }
 
 // {
 //     // Use o IntelliSense para saber mais sobre os atributos possíveis.
