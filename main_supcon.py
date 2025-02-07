@@ -210,8 +210,13 @@ def set_model(opt):
         model.encoder.load_state_dict(pretrained_net.state_dict(), strict=False)
 
     elif opt.model == "vit_base":
-        model = vits.SupConViT(name=opt.model, feat_dim=768)
-    #ResNet model - OK!
+        pretrained_net = timm.create_model('vit_base_patch16_224', pretrained=True)
+        model = vits.SupConViT(name=opt.model, feat_dim=384)
+        pretrained_net.head = torch.nn.Identity()
+        for pretrained_net.head in pretrained_net.head.parameters():
+            pretrained_net.head = True
+        model.encoder.load_state_dict(pretrained_net.state_dict(), strict=False)
+    
     elif "resnet50" in opt.model: 
         # Visit: https://github.com/HobbitLong/SupContrast/issues/146
         pretrained_net = resnet50(weights=ResNet50_Weights.DEFAULT)
