@@ -316,20 +316,18 @@ def set_loader(opt, contrast_trans=False, for_test=False):
                                            download=True)
         test_dataset.targets = test_dataset._labels
     elif opt.dataset == 'imagenet100' or opt.dataset == 'imagenet' or opt.dataset == 'path':
-
-        if "dino" in opt.model:
-            transform_dino = DataAugmentationDINO(
-                global_crops_scale = (0.4, 1.),
-                local_crops_scale = (0.05, 0.4),
-                local_crops_number = 8,
-            )
-            train_dataset = datasets.ImageFolder(root=opt.data_folder + "/train/",
-                                                 transform=transform_dino)
-            test_dataset = datasets.ImageFolder(root=opt.data_folder + "/test/",
-                                                 transform=transform_dino)
+        # if "dino" in opt.model:
+        #     transform_dino = DataAugmentationDINO(
+        #         global_crops_scale = (0.4, 1.),
+        #         local_crops_scale = (0.05, 0.4),
+        #         local_crops_number = 8,
+        #     )
+        #     train_dataset = datasets.ImageFolder(root=opt.data_folder + "/train/",
+        #                                          transform=transform_dino)
+        #     test_dataset = datasets.ImageFolder(root=opt.data_folder + "/test/",
+        #                                          transform=transform_dino)
             
-        #=============================
-        
+        # #=============================
         train_dataset = datasets.ImageFolder(root=opt.data_folder + "/train/",
                                              transform=train_transform)
         test_dataset = datasets.ImageFolder(root=opt.data_folder + "/test/",
