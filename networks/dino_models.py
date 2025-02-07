@@ -5,6 +5,9 @@ from torchvision import transforms
 from timm.models.vision_transformer import VisionTransformer
 from PIL import Image
 
+#ViT's backbones
+import networks.vit as vits
+
 import os
 import requests
 import util
@@ -43,7 +46,7 @@ def download_checkpoint(model_name, save_dir="checkpoints"):
     return filename
 
 
-def load_dino_model(model_name, checkpoint_path, checkpoint_key):
+def load_dino_model(model_name, checkpoint_path, checkpoint_key, linear_eval=False):
     """Carrega o modelo ViT DINO e remove a cabeça de classificação."""
     
     # Definição do tamanho da dimensão do embedding
@@ -52,30 +55,100 @@ def load_dino_model(model_name, checkpoint_path, checkpoint_key):
         "dino_vit_small_p_8": 384,
         "dino_vit_base_p_16": 768,
         "dino_vit_base_p_8": 768
-
     }
     
     if model_name not in feat_dims:
         raise ValueError(f"Modelo {model_name} não é um modelo DINOv1 suportado.")
+    
+    if linear_eval:
+        # model = vits.SupConViT(model_name, feat_dim=feat_dims[model_name])
+        model = VisionTransformer(
+            img_size=224,
+            patch_size=8 if "p_8" in model_name else 16,
+            embed_dim=feat_dims[model_name],
+            depth=12,
+            num_heads=6 if "small" in model_name else 12,
+            mlp_ratio=4,
+        )
 
-    # Carrega o modelo ViT usando timm
-    vit_model = VisionTransformer(
-        img_size=224,
-        patch_size=8 if "p_8" in model_name else 16,
-        embed_dim=feat_dims[model_name],
-        depth=12,
-        num_heads=6 if "small" in model_name else 12,
-        mlp_ratio=4,
-    )
+        # Carrega o checkpoint DINOv1
+        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+        model.load_state_dict(checkpoint, strict=False)
 
-    # Carrega o checkpoint DINOv1
-    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
-    vit_model.load_state_dict(checkpoint[checkpoint_key], strict=False)
+        # Remove a cabeça de classificação
+        model.head = nn.Identity()
+        
+    else:
+        # Pretrained
+        model = VisionTransformer(
+            img_size=224,
+            patch_size=8 if "p_8" in model_name else 16,
+            embed_dim=feat_dims[model_name],
+            depth=12,
+            num_heads=6 if "small" in model_name else 12,
+            mlp_ratio=4,
+        )
 
-    # Remove a cabeça de classificação
-    vit_model.head = nn.Identity()
+        # Carrega o checkpoint DINOv1
+        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+        model.load_state_dict(checkpoint[checkpoint_key], strict=False)
 
-    return vit_model
+        # Remove a cabeça de classificação
+        model.head = nn.Identity()
+
+    return model
+
+    
+
+# def load_dino_model(model_name, checkpoint_path, checkpoint_key, linear_eval=False):
+#     """Carrega o modelo ViT DINO e remove a cabeça de classificação."""
+    
+#     # Definição do tamanho da dimensão do embedding
+#     feat_dims = {
+#         "dino_vit_small_p_16": 384,
+#         "dino_vit_small_p_8": 384,
+#         "dino_vit_base_p_16": 768,
+#         "dino_vit_base_p_8": 768
+#     }
+    
+#     if model_name not in feat_dims:
+#         raise ValueError(f"Modelo {model_name} não é um modelo DINOv1 suportado.")
+
+#     if linear_eval:
+#         # Carrega o modelo ViT usando timm
+#         vit_model = VisionTransformer(
+#             img_size=224,
+#             patch_size=8 if "p_8" in model_name else 16,
+#             embed_dim=feat_dims[model_name],
+#             depth=12,
+#             num_heads=6 if "small" in model_name else 12,
+#             mlp_ratio=4,
+#         )
+
+#         checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+#         vit_model.load_state_dict(checkpoint, strict=False)
+        
+#         return vit_model
+    
+#     else:
+#         # Carrega o modelo ViT usando timm
+#         vit_model = VisionTransformer(
+#             img_size=224,
+#             patch_size=8 if "p_8" in model_name else 16,
+#             embed_dim=feat_dims[model_name],
+#             depth=12,
+#             num_heads=6 if "small" in model_name else 12,
+#             mlp_ratio=4,
+#         )
+
+#         # Carrega o checkpoint DINOv1
+#         checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+#         vit_model.load_state_dict(checkpoint[checkpoint_key], strict=False)
+
+#         # Remove a cabeça de classificação
+#         vit_model.head = nn.Identity()
+
+#         return vit_model
 
 
 #DINO Repository copy-paste: https://raw.githubusercontent.com/facebookresearch/dino/refs/heads/main/main_dino.py

@@ -15,6 +15,7 @@ from main_ce import set_loader
 from util import AverageMeter, adjust_learning_rate, warmup_learning_rate, set_optimizer, save_model
 
 #Networks
+import timm
 import networks.vit as vits
 from networks.dino_models import load_dino_model, download_checkpoint, MultiCropWrapper
 from networks.resnet_big import SupConResNet
@@ -23,6 +24,7 @@ from torchvision.models import resnet50, ResNet50_Weights
 #Losses
 from losses import SupConLoss, MultiviewSINCERELoss, MultiviewEpsSupInfoNCELoss, InfoNCELoss
 
+import util
 
 def parse_option():
 
@@ -188,36 +190,48 @@ def set_model(opt):
     print('\n[INFO] Setting model and criterion...')
 
 
-    DINO_MODELS = {
-        "dino_vit_small_p_16": "https://dl.fbaipublicfiles.com/dino/dino_deitsmall16_pretrain/dino_deitsmall16_pretrain_full_checkpoint.pth",
-        "dino_vit_small_p_8": "https://dl.fbaipublicfiles.com/dino/dino_deitsmall8_pretrain/dino_deitsmall8_pretrain_full_checkpoint.pth",
-        "dino_vit_base_p_16": "https://dl.fbaipublicfiles.com/dino/dino_vitbase16_pretrain/dino_vitbase16_pretrain_full_checkpoint.pth",
-        "dino_vit_base_p_8": "https://dl.fbaipublicfiles.com/dino/dino_vitbase8_pretrain/dino_vitbase8_pretrain_full_checkpoint.pth"
-    }
+    # DINO_MODELS = {
+    #     "dino_vit_small_p_16": "https://dl.fbaipublicfiles.com/dino/dino_deitsmall16_pretrain/dino_deitsmall16_pretrain_full_checkpoint.pth",
+    #     "dino_vit_small_p_8": "https://dl.fbaipublicfiles.com/dino/dino_deitsmall8_pretrain/dino_deitsmall8_pretrain_full_checkpoint.pth",
+    #     "dino_vit_base_p_16": "https://dl.fbaipublicfiles.com/dino/dino_vitbase16_pretrain/dino_vitbase16_pretrain_full_checkpoint.pth",
+    #     "dino_vit_base_p_8": "https://dl.fbaipublicfiles.com/dino/dino_vitbase8_pretrain/dino_vitbase8_pretrain_full_checkpoint.pth"
+    # }
 
     # Set the model
     model = None
 
     # ViT model
     if opt.model == "vit_small": 
+        pretrained_net = timm.create_model('vit_small_patch16_224', pretrained=True)
         model = vits.SupConViT(name=opt.model, feat_dim=384)
-    elif opt.model == "vit_base":
-        model = vits.SupConViT(name=opt.model, feat_dim=768)
-
-    #ResNet model    
-    elif "resnet50" in opt.model: 
-        pretrained_net = resnet50(weights=ResNet50_Weights.DEFAULT)
-        # del pretrained_net.fc
-        pretrained_net.fc = torch.nn.Identity()
-        model = SupConResNet(name=opt.model)
+        pretrained_net.head = torch.nn.Identity()
+        for pretrained_net.head in pretrained_net.head.parameters():
+            pretrained_net.head = True
         model.encoder.load_state_dict(pretrained_net.state_dict(), strict=False)
 
-    elif opt.model in DINO_MODELS:
-        checkpoint_path = download_checkpoint(opt.model)    
-        if checkpoint_path is None:
-            raise FileNotFoundError(f"[ERROR] Não foi possível encontrar o checkpoint {opt.model}.")        
-        model = load_dino_model(opt.model, checkpoint_path, opt.checkpoint_key)
-        # model = MultiCropWrapper(model)
+    elif opt.model == "vit_base":
+        model = vits.SupConViT(name=opt.model, feat_dim=768)
+    #ResNet model - OK!
+    elif "resnet50" in opt.model: 
+        # Visit: https://github.com/HobbitLong/SupContrast/issues/146
+        pretrained_net = resnet50(weights=ResNet50_Weights.DEFAULT)
+        model = SupConResNet(name=opt.model)
+        pretrained_net.fc = torch.nn.Identity()
+        model.encoder.load_state_dict(pretrained_net.state_dict(), strict=False)
+
+    elif "dino_vit_small_p_16" in opt.model:
+        pretrained_net = torch.hub.load('facebookresearch/dino:main', 'dino_vits16')
+        model = vits.SupConViT(name=opt.model, feat_dim=384)
+        pretrained_net.head = torch.nn.Identity()
+        for pretrained_net.head in pretrained_net.head.parameters():
+            pretrained_net.head = True
+        model.encoder.load_state_dict(pretrained_net.state_dict(), strict=False)
+
+    # elif opt.model in DINO_MODELS:
+    #     checkpoint_path = download_checkpoint(opt.model)    
+    #     if checkpoint_path is None:
+    #         raise FileNotFoundError(f"[ERROR] Não foi possível encontrar o checkpoint {opt.model}.")        
+    #     model = load_dino_model(opt.model, checkpoint_path, opt.checkpoint_key) #isso funciona 
     else:
         raise ValueError(f"Choose model [{opt.model}] not supported.")
     

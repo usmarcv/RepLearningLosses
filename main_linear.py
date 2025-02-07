@@ -15,7 +15,11 @@ from util import AverageMeter
 from util import adjust_learning_rate, warmup_learning_rate, accuracy, save_model, set_optimizer
 from networks.resnet_big import SupConResNet, LinearClassifier
 import networks.vit as vits
+from networks.dino_models import load_dino_model
+from torchvision.models import resnet50, ResNet50_Weights
 
+
+import util
 
 
 def parse_option():
@@ -51,7 +55,11 @@ def parse_option():
 
     # model dataset
     # Aqui tem as alterações para o modelo e dataset // mexer aqui
-    parser.add_argument('--model', type=str, default='resnet50')
+    parser.add_argument('--model', type=str, default='resnet50', choices=['resnet50', 
+                                                                          'vit_small', 'vit_base',
+                                                                          'dino_vit_small_p_16', 'dino_vit_small_p_8', 
+                                                                          'dino_vit_base_p_16', 'dino_vit_base_p_8'], 
+                        help='Choose your backbone')
     parser.add_argument('--n_cls', type=int, default=9, help='number of classes') #for platonicsolids dataset
     parser.add_argument('--dataset', type=str, default='cifar10',
                         choices=['cifar10', 'cifar100', 'imagenet100', 'imagenet', 'cifar2',
@@ -173,24 +181,28 @@ def set_model(opt):
 
     # Set the model
     # If model is ViT
-    if "vit_tiny" in opt.model: 
-        model = vits.SupConViT(name=opt.model, feat_dim=192)
-        classifier = vits.LinearClassifierViT(name=opt.model, num_classes=opt.n_cls)
-    elif "vit_small" in opt.model: 
+    if "vit_small" in opt.model: 
         model = vits.SupConViT(name=opt.model, feat_dim=384)
         classifier = vits.LinearClassifierViT(name=opt.model, num_classes=opt.n_cls)
     elif "vit_base" in opt.model: 
         model = vits.SupConViT(name=opt.model, feat_dim=768)
         classifier = vits.LinearClassifierViT(name=opt.model, num_classes=opt.n_cls)
-    elif "vit_large" in opt.model: 
-        model = vits.SupConViT(name=opt.model, feat_dim=1024),
+    elif "dino_vit_small_p_16" in opt.model:#não ta funcionando ainda
+        model = vits.SupConViT(name=opt.model, feat_dim=384)
+        # model = load_dino_model(opt.model, opt.ckpt, None, linear_eval=True)
+        # model = util.load_pretrained_weights(opt.model, opt.ckpt, opt.checkpoint_key)
+        # model = vits.SupConViT(name=opt.model, feat_dim=[opt.model])
         classifier = vits.LinearClassifierViT(name=opt.model, num_classes=opt.n_cls)
-    else: #If model is resnet
+    elif "resnet50" in opt.model: #If model is resnet
         model = SupConResNet(name=opt.model)
         classifier = LinearClassifier(name=opt.model, num_classes=opt.n_cls)
-
+    else:
+        raise ValueError('Model not supported: {}'.format(opt.model))
+    
+    # Set the criterion (Loss function)
     criterion = torch.nn.CrossEntropyLoss()
 
+    # Load the checkpoint if available (Basically, if we are using a pre-trained model or runned from Stage 1)
     ckpt = torch.load(opt.ckpt, map_location='cpu')
     state_dict = ckpt['model']
 
@@ -323,18 +335,18 @@ def cache_outputs(val_loader, model, classifier, opt):
 
     # Define as dimensões de embeddings para diferentes arquiteturas
     embedding_dims = {
-        'resnet50': 128,
+        'resnet50': 2048,
         'vit_small': 384,
         'vit_base': 768,
         'vit_large': 1024,
-        "dino_vit_small_p_16": 384,
-        "dino_vit_small_p_8": 384,
-        "dino_vit_base_p_16": 768,
-        "dino_vit_base_p_8": 768
+        'dino_vit_small_p_16': 384,
+        'dino_vit_small_p_8': 384,
+        'dino_vit_base_p_16': 768,
+        'dino_vit_base_p_8': 768
     }
     
     embedding_dim = embedding_dims.get(opt.model)  
-    embeds = torch.empty((0, embedding_dim))
+    embeds = torch.empty((0, int(embedding_dim)))
     preds = torch.empty((0, opt.n_cls))
     labels = torch.empty((0,))
 
