@@ -93,10 +93,10 @@
             "program": "${workspaceFolder}/main_supcon.py",
             "console": "integratedTerminal",
             "args": [
-                "--batch_size", "32",
+                "--batch_size", "4",
                 "--size", "224",
-                "--epochs", "10",
-                "--model", "vit_small",
+                "--epochs", "5",
+                "--model", "dino_vit_small_p_8",
                 // "--checkpoint_key", "student",
                 "--learning_rate", "0.001",
                 "--dataset", "path",
