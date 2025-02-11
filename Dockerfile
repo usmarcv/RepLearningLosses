@@ -29,7 +29,7 @@ ENV LANG en_US.UTF-8
 ENV TERM xterm-256color
 
 # setting your work directory (you can update and add some files)
-WORKDIR /app
-COPY . /app
+WORKDIR /root
+COPY . /root
 
 CMD ["bash"]
