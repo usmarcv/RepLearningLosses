@@ -17,6 +17,7 @@ RUN apt-get update -y && apt-get install -y \
 # install some niceties to help development
 RUN apt-get update -y && apt-get install -y zsh tmux htop vim
 RUN pip3 install -U pip 
+RUN pip3 install -U pipenv
 RUN apt-get install -y python3.12 python3.12-venv python3.12-dev 
 RUN ln -s /usr/bin/python3 /usr/bin/python
 
