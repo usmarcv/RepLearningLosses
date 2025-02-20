@@ -11,7 +11,7 @@ from sklearn.model_selection import train_test_split
 import tensorboard_logger as tb_logger
 import torch
 import torch.backends.cudnn as cudnn
-from torch.utils.data import DataLoader, DistributedSampler
+from torch.utils.data import DataLoader, DistributedSampler, random_split
 from torchvision import transforms, datasets
 
 import sampler
@@ -78,6 +78,8 @@ def parse_option():
                         help='warm-up for large batch training')
     parser.add_argument('--trial', type=str, default='0',
                         help='id for recording multiple runs')
+
+
 
     opt = parser.parse_args()
 
@@ -151,6 +153,7 @@ def parse_option():
 
 
 def set_loader(opt, contrast_trans=False, for_test=False):
+
     # dataset specific normalization
     if opt.dataset == 'cifar10':
         mean = (0.4914, 0.4822, 0.4465)
@@ -315,23 +318,22 @@ def set_loader(opt, contrast_trans=False, for_test=False):
                                            transform=test_transform,
                                            download=True)
         test_dataset.targets = test_dataset._labels
+
     elif opt.dataset == 'imagenet100' or opt.dataset == 'imagenet' or opt.dataset == 'path':
-        # if "dino" in opt.model:
-        #     transform_dino = DataAugmentationDINO(
-        #         global_crops_scale = (0.4, 1.),
-        #         local_crops_scale = (0.05, 0.4),
-        #         local_crops_number = 8,
-        #     )
-        #     train_dataset = datasets.ImageFolder(root=opt.data_folder + "/train/",
-        #                                          transform=transform_dino)
-        #     test_dataset = datasets.ImageFolder(root=opt.data_folder + "/test/",
-        #                                          transform=transform_dino)
-            
-        # #=============================
-        train_dataset = datasets.ImageFolder(root=opt.data_folder + "/train/",
-                                             transform=train_transform)
-        test_dataset = datasets.ImageFolder(root=opt.data_folder + "/test/",
-                                            transform=test_transform)
+        if opt.percentDataset:
+            train_dataset = datasets.ImageFolder(root=opt.data_folder + "/train/",
+                                                 transform=train_transform)
+            subset = int(len(train_dataset)*opt.percentDataset)
+            _,subset = random_split(train_dataset, [len(train_dataset)-subset, subset])
+
+            test_dataset = datasets.ImageFolder(root=opt.data_folder + "/test/",
+                                                transform=test_transform)
+
+        else:
+            train_dataset = datasets.ImageFolder(root=opt.data_folder + "/train/",
+                                                transform=train_transform)
+            test_dataset = datasets.ImageFolder(root=opt.data_folder + "/test/",
+                                                transform=test_transform)
     else:
         raise ValueError(opt.dataset)
 
@@ -361,13 +363,13 @@ def set_loader(opt, contrast_trans=False, for_test=False):
     # construct train and test data loaders
     if "device" in opt:
         train_loader = DataLoader(
-            train_dataset, num_workers=opt.num_workers, pin_memory=True,
-            batch_size=opt.batch_size,
-            sampler=DistributedSampler(train_dataset) if "device" in opt else None)
+                train_dataset, num_workers=opt.num_workers, pin_memory=True,
+                batch_size=opt.batch_size,
+                sampler=DistributedSampler(train_dataset) if "device" in opt else None)
         test_loader = DataLoader(
-            test_dataset, num_workers=opt.num_workers, pin_memory=True,
-            batch_size=opt.batch_size,
-            sampler=DistributedSampler(test_dataset) if "device" in opt else None)
+                test_dataset, num_workers=opt.num_workers, pin_memory=True,
+                batch_size=opt.batch_size,
+                sampler=DistributedSampler(test_dataset) if "device" in opt else None)
     elif not for_test:
         train_loader = DataLoader(
             train_dataset, num_workers=opt.num_workers, pin_memory=True,
@@ -376,12 +378,22 @@ def set_loader(opt, contrast_trans=False, for_test=False):
             test_dataset, num_workers=opt.num_workers, pin_memory=True,
             batch_sampler=sampler.my_sampler(test_dataset, opt.batch_size))
     else:
-        train_loader = DataLoader(
-            train_dataset, num_workers=opt.num_workers, pin_memory=True,
-            batch_size=opt.batch_size)
-        test_loader = DataLoader(
-            test_dataset, num_workers=opt.num_workers, pin_memory=True,
-            batch_size=opt.batch_size)
+        if opt.percentDataset:
+            train_loader = DataLoader(
+                subset, num_workers=opt.num_workers, pin_memory=True,
+                batch_size=opt.batch_size,
+                sampler=DistributedSampler(subset) if "device" in opt else None)
+            test_loader = DataLoader(
+                test_dataset, num_workers=opt.num_workers, pin_memory=True,
+                batch_size=opt.batch_size,
+                sampler=DistributedSampler(test_dataset) if "device" in opt else None)
+        else:
+            train_loader = DataLoader(
+                train_dataset, num_workers=opt.num_workers, pin_memory=True,
+                batch_size=opt.batch_size)
+            test_loader = DataLoader(
+                test_dataset, num_workers=opt.num_workers, pin_memory=True,
+                batch_size=opt.batch_size)
 
     # compute mean and STD used above (use test transform without normalization)
     # code from https://discuss.pytorch.org/t/about-normalization-using-pre-trained

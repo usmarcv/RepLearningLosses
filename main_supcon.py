@@ -79,22 +79,11 @@ def parse_option():
                         default=None, help='path to custom dataset')
     parser.add_argument('--size', type=int, default=32,
                         help='size of images after resizing')
-    
-    # data augmentation
-    # parser.add_argument('--crop_size', type=int, default=320, help='parameter for RandomResizedCrop')
-    # parser.add_argument('--crop_scale', type=str, help='crop scale for RandomResizedCrop in form of str tuple')
-    # parser.add_argument('--crop_ratio', type=str, help='crop ratio for RandomResizedCrop in form of str tuple')
-    # parser.add_argument('--degrees', type=int, help='limit for degrees used in random rotation augmentation')
 
-    # method
+    # Contrastive method
     parser.add_argument('--method', type=str, default='SINCERE',
                         choices=['SINCERE', 'SupCon', 'EpsSupInfoNCE', 'SimCLR', 'InfoNCE'],
                         help='Choose your contrastive method')
-    
-    parser.add_argument("--checkpoint_key", type=str, default="student", 
-                    choices=["teacher", "student"],
-                    help="Escolha entre 'teacher' ou 'student' ao carregar um checkpoint DINO.")
-
 
     # temperature
     parser.add_argument('--temp', type=float, default=0.07,
@@ -109,6 +98,12 @@ def parse_option():
                         help='warm-up for large batch training')
     parser.add_argument('--trial', type=str, default='0',
                         help='id for recording multiple runs')
+    
+
+    #Experimental Dataset Settings
+    parser.add_argument('--kfold', type=int, default=10, help='K-fold cross validation for 30 percent for train dataset')
+    parser.add_argument('--percentDataset', type=float, default=0.3, help='Percentage of dataset to use for splint and use K-fold training')
+
 
     opt = parser.parse_args()
 
