@@ -21,7 +21,6 @@ from util import adjust_learning_rate, warmup_learning_rate, accuracy, set_optim
 
 import networks.vit as vits
 from networks.resnet_big import SupCEResNet
-from networks.dino_models import DataAugmentationDINO
 
 
 def parse_option():
