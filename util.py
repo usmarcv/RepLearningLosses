@@ -10,10 +10,9 @@ import torch.optim as optim
 from torch.utils.data import Subset
 from torch.utils.data.dataset import Dataset
 
-#DINO utils
 import os
-import random
-from PIL import ImageFilter, ImageOps
+import pandas as pd
+from PIL import Image
 
 
 class SubsetWithTargets(Subset):
@@ -128,78 +127,59 @@ def save_model(model, optimizer, opt, epoch, save_file):
 
     del state
 
-#DINO Repository copy-paste: https://raw.githubusercontent.com/facebookresearch/dino/refs/heads/main/main_dino.py
-class GaussianBlur(object):
-    """
-    Apply Gaussian Blur to the PIL image.
-    """
-    def __init__(self, p=0.5, radius_min=0.1, radius_max=2.):
-        self.prob = p
-        self.radius_min = radius_min
-        self.radius_max = radius_max
 
-    def __call__(self, img):
-        do_it = random.random() <= self.prob
-        if not do_it:
-            return img
+#Copy pasted from https://pytorch.org/tutorials/beginner/basics/data_tutorial.html?highlight=dataset
+# class CustomImageDataset(Dataset):
 
-        return img.filter(
-            ImageFilter.GaussianBlur(
-                radius=random.uniform(self.radius_min, self.radius_max)
-            )
-        )
+#     def __init__(self, annotations_file, img_dir, transform=None, target_transform=None):
+#         self.img_labels = pd.read_csv(annotations_file)
+#         self.img_dir = img_dir
+#         self.transform = transform
+#         self.target_transform = target_transform
+
+#     def __len__(self):
+#         return len(self.img_labels)
+
+#     def __getitem__(self, idx):
+#         img_path = os.path.join(self.img_dir, self.img_labels.iloc[idx, 0])
+#         image = read_image(img_path)
+#         label = self.img_labels.iloc[idx, 1]
+#         if self.transform:
+#             image = self.transform(image)
+#         if self.target_transform:
+#             label = self.target_transform(label)
+#         return image, label
 
 
-class Solarization(object):
-    """
-    Apply Solarization to the PIL image.
-    """
-    def __init__(self, p):
-        self.p = p
+class CustomDatasetFromCSV(Dataset):
+    """Generating custom dataset for importing images from csv
+    """    
+    def __init__(self, path_root, tf_image, csv_name, as_rgb=False, task=None):
 
-    def __call__(self, img):
-        if random.random() < self.p:
-            return ImageOps.solarize(img)
-        else:
-            return img
+        self.data = pd.read_csv(csv_name)
+        self.as_rgb = as_rgb
+        if task is not None:
+            self.data.query("Task == @task", inplace=True)
+        self.tf_image = tf_image
+        self.root = path_root
+        self.cl_name = {c: i for i, c in enumerate(np.unique(self.data["label"]))}
+        self.BARVALUE = "/" if not os.name == "nt" else "\\"
+    
+    def __len__(self):
+        return len(self.data)
+    
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
         
-
-def load_pretrained_weights(model, pretrained_weights, checkpoint_key, model_name, patch_size):
-    if os.path.isfile(pretrained_weights):
-        state_dict = torch.load(pretrained_weights, map_location="cpu")
-        if checkpoint_key is not None and checkpoint_key in state_dict:
-            print(f"Take key {checkpoint_key} in provided checkpoint dict")
-            state_dict = state_dict[checkpoint_key]
-        # remove `module.` prefix
-        state_dict = {k.replace("module.", ""): v for k, v in state_dict.items()}
-        # remove `backbone.` prefix induced by multicrop wrapper
-        state_dict = {k.replace("backbone.", ""): v for k, v in state_dict.items()}
-        msg = model.load_state_dict(state_dict, strict=False)
-        print('Pretrained weights found at {} and loaded with msg: {}'.format(pretrained_weights, msg))
-    else:
-        print("Please use the `--pretrained_weights` argument to indicate the path of the checkpoint to evaluate.")
-        url = None
-        if model_name == "vit_small" and patch_size == 16:
-            url = "dino_deitsmall16_pretrain/dino_deitsmall16_pretrain.pth"
-        elif model_name == "vit_small" and patch_size == 8:
-            url = "dino_deitsmall8_pretrain/dino_deitsmall8_pretrain.pth"
-        elif model_name == "vit_base" and patch_size == 16:
-            url = "dino_vitbase16_pretrain/dino_vitbase16_pretrain.pth"
-        elif model_name == "vit_base" and patch_size == 8:
-            url = "dino_vitbase8_pretrain/dino_vitbase8_pretrain.pth"
-        elif model_name == "xcit_small_12_p16":
-            url = "dino_xcit_small_12_p16_pretrain/dino_xcit_small_12_p16_pretrain.pth"
-        elif model_name == "xcit_small_12_p8":
-            url = "dino_xcit_small_12_p8_pretrain/dino_xcit_small_12_p8_pretrain.pth"
-        elif model_name == "xcit_medium_24_p16":
-            url = "dino_xcit_medium_24_p16_pretrain/dino_xcit_medium_24_p16_pretrain.pth"
-        elif model_name == "xcit_medium_24_p8":
-            url = "dino_xcit_medium_24_p8_pretrain/dino_xcit_medium_24_p8_pretrain.pth"
-        elif model_name == "resnet50":
-            url = "dino_resnet50_pretrain/dino_resnet50_pretrain.pth"
-        if url is not None:
-            print("Since no pretrained weights have been provided, we load the reference pretrained DINO weights.")
-            state_dict = torch.hub.load_state_dict_from_url(url="https://dl.fbaipublicfiles.com/dino/" + url)
-            model.load_state_dict(state_dict, strict=True)
-        else:
-            print("There is no reference weights available for this model => We use random weights.")
+        #x_path = os.path.join(self.root, self.data.iloc[idx, 0].split(self.BARVALUE)[-2], self.data.iloc[idx, 0].split(self.BARVALUE)[-1])
+        x_path = os.path.join(self.root, self.data.iloc[idx, 0])
+        y = self.cl_name[self.data.iloc[idx, 1]]
+        
+        X = Image.open(x_path).convert("RGB")
+        #X = cv2.cvtColor(cv2.imread(x_path), cv2.COLOR_BGR2RGB) if self.as_rgb else cv2.imread(x_path, cv2.IMREAD_GRAYSCALE)
+ 
+        if self.tf_image:
+            X = self.tf_image(X)
+        
+        return X, y
