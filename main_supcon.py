@@ -10,27 +10,19 @@ import torch
 import torch.backends.cudnn as cudnn
 from torch.utils.tensorboard import SummaryWriter
 
+#Measures and utils
 from contrast_acc import contrastive_acc, test_contrastive_acc, test_contrastive_acc_knn
 from main_ce import set_loader
 from util import AverageMeter, adjust_learning_rate, warmup_learning_rate, set_optimizer, save_model
 
 #Networks
-from networks.pretrained_models import load_pretrained_model
-# import timm
-# import networks.vit as vits #From scratch ViT models
-# from networks.dino_models import load_dino_model, download_checkpoint, MultiCropWrapper
-# from networks.resnet_big import SupConResNet #From scratch ResNet models
-# from torchvision.models import resnet50, ResNet50_Weights
+import networks.vit as vits
+from networks.resnet_big import SupConResNet
+from torchvision.models import resnet50, ResNet50_Weights
 
 #Losses
 from losses import SupConLoss, MultiviewSINCERELoss, MultiviewEpsSupInfoNCELoss, InfoNCELoss
 
-import util
-
-
-__all_models = ['resnet50', 
-                'vit_small', 'vit_base', 
-                'dino_vit_small_p_16', 'dino_vit_small_p_8', 'dino_vit_base_p_16', 'dino_vit_base_p_8']
 
 def parse_option():
 
@@ -60,10 +52,8 @@ def parse_option():
                         help='momentum')
 
     # model dataset
-    parser.add_argument('--model', type=str, default='resnet50', choices=['resnet50', 
-                                                                          'vit_small', 'vit_base',
-                                                                          'dino_vit_small_p_16', 'dino_vit_small_p_8', 
-                                                                          'dino_vit_base_p_16', 'dino_vit_base_p_8'], 
+    parser.add_argument('--model', type=str, default='resnet50', choices=['resnet18', 'resnet50', 'resnet101', 
+                                                                          'vit_tiny', 'vit_base', 'vit_small', 'vit_large'], 
                         help='Choose your backbone')
     #parser.add_argument('--n_cls', type=int, default=None, help='Number of classes for your dataset')
     parser.add_argument('--dataset', type=str, default='cifar10',
@@ -79,8 +69,14 @@ def parse_option():
                         default=None, help='path to custom dataset')
     parser.add_argument('--size', type=int, default=32,
                         help='size of images after resizing')
+    
+    # data augmentation
+    # parser.add_argument('--crop_size', type=int, default=320, help='parameter for RandomResizedCrop')
+    # parser.add_argument('--crop_scale', type=str, help='crop scale for RandomResizedCrop in form of str tuple')
+    # parser.add_argument('--crop_ratio', type=str, help='crop ratio for RandomResizedCrop in form of str tuple')
+    # parser.add_argument('--degrees', type=int, help='limit for degrees used in random rotation augmentation')
 
-    # Contrastive method
+    # method
     parser.add_argument('--method', type=str, default='SINCERE',
                         choices=['SINCERE', 'SupCon', 'EpsSupInfoNCE', 'SimCLR', 'InfoNCE'],
                         help='Choose your contrastive method')
@@ -98,12 +94,6 @@ def parse_option():
                         help='warm-up for large batch training')
     parser.add_argument('--trial', type=str, default='0',
                         help='id for recording multiple runs')
-    
-
-    #Experimental Dataset Settings
-    parser.add_argument('--kfold', type=int, default=10, help='K-fold cross validation for 30 percent for train dataset')
-    parser.add_argument('--percentDataset', type=float, default=0.3, help='Percentage of dataset to use for splint and use K-fold training')
-
 
     opt = parser.parse_args()
 
@@ -190,60 +180,22 @@ def set_model(opt):
 
     print('\n[INFO] Setting model and criterion...')
 
-
-    # DINO_MODELS = {
-    #     "dino_vit_small_p_16": "https://dl.fbaipublicfiles.com/dino/dino_deitsmall16_pretrain/dino_deitsmall16_pretrain_full_checkpoint.pth",
-    #     "dino_vit_small_p_8": "https://dl.fbaipublicfiles.com/dino/dino_deitsmall8_pretrain/dino_deitsmall8_pretrain_full_checkpoint.pth",
-    #     "dino_vit_base_p_16": "https://dl.fbaipublicfiles.com/dino/dino_vitbase16_pretrain/dino_vitbase16_pretrain_full_checkpoint.pth",
-    #     "dino_vit_base_p_8": "https://dl.fbaipublicfiles.com/dino/dino_vitbase8_pretrain/dino_vitbase8_pretrain_full_checkpoint.pth"
-    # }
-
     # Set the model
-    model = None
-
-    if opt.model in __all_models:
-        model = load_pretrained_model(opt.model)
-
-    # # ViT model
-    # if opt.model == "vit_small": 
-    #     pretrained_net = timm.create_model('vit_small_patch16_224', pretrained=True)
-    #     model = vits.SupConViT(name=opt.model, feat_dim=384)
-    #     pretrained_net.head = torch.nn.Identity()
-    #     for pretrained_net.head in pretrained_net.head.parameters():
-    #         pretrained_net.head = True
-    #     model.encoder.load_state_dict(pretrained_net.state_dict(), strict=False)
-
-    # elif opt.model == "vit_base":
-    #     pretrained_net = timm.create_model('vit_base_patch16_224', pretrained=True)
-    #     model = vits.SupConViT(name=opt.model, feat_dim=384)
-    #     pretrained_net.head = torch.nn.Identity()
-    #     for pretrained_net.head in pretrained_net.head.parameters():
-    #         pretrained_net.head = True
-    #     model.encoder.load_state_dict(pretrained_net.state_dict(), strict=False)
-    
-    # elif "resnet50" in opt.model: 
-    #     # Visit: https://github.com/HobbitLong/SupContrast/issues/146
-    #     pretrained_net = resnet50(weights=ResNet50_Weights.DEFAULT)
-    #     model = SupConResNet(name=opt.model)
-    #     pretrained_net.fc = torch.nn.Identity()
-    #     model.encoder.load_state_dict(pretrained_net.state_dict(), strict=False)
-
-    # elif "dino_vit_small_p_16" in opt.model:
-    #     pretrained_net = torch.hub.load('facebookresearch/dino:main', 'dino_vits16')
-    #     model = vits.SupConViT(name=opt.model, feat_dim=384)
-    #     pretrained_net.head = torch.nn.Identity()
-    #     for pretrained_net.head in pretrained_net.head.parameters():
-    #         pretrained_net.head = True
-    #     model.encoder.load_state_dict(pretrained_net.state_dict(), strict=False)
-
-    # # elif opt.model in DINO_MODELS:
-    # #     checkpoint_path = download_checkpoint(opt.model)    
-    # #     if checkpoint_path is None:
-    # #         raise FileNotFoundError(f"[ERROR] Não foi possível encontrar o checkpoint {opt.model}.")        
-    # #     model = load_dino_model(opt.model, checkpoint_path, opt.checkpoint_key) #isso funciona 
-    # else:
-    #     raise ValueError(f"Choose model [{opt.model}] not supported.")
-    
+    # If model is ViT
+    if "vit_tiny" in opt.model: 
+        model = vits.SupConViT(name=opt.model, feat_dim=192)
+    elif "vit_small" in opt.model: 
+        model = vits.SupConViT(name=opt.model, feat_dim=384)
+    elif "vit_base" in opt.model: 
+        model = vits.SupConViT(name=opt.model, feat_dim=768)
+    elif "vit_large" in opt.model: 
+        model = vits.SupConViT(name=opt.model, feat_dim=1024)
+    else: #If model is resnet
+        pretrained_weights = resnet50(weights=ResNet50_Weights.DEFAULT)
+        pretrained_weights.fc = torch.nn.Identity()
+        model = SupConResNet(name=opt.model)
+        model.encoder.load_state_dict(pretrained_weights.state_dict(), strict=False)
+     
     #Set criterion 
     if opt.method == 'SINCERE':
         # original implementation does not set base_temperature, but setting here to make
@@ -369,14 +321,13 @@ def valid(train_loader, valid_loader, epoch, opt, logger):
     # Define as dimensões de embeddings para diferentes arquiteturas
     # Reajustar para não chamar toda vez
     embedding_dims = {
+        'resnet18': 128,
+        'resnet101': 128,
         'resnet50': 128,
+        'vit_tiny': 192,
         'vit_small': 384,
         'vit_base': 768,
-        'vit_large': 1024,
-        "dino_vit_small_p_16": 384,
-        "dino_vit_small_p_8": 384,
-        "dino_vit_base_p_16": 768,
-        "dino_vit_base_p_8": 768
+        'vit_large': 1024
     }
     
     embedding_dim = embedding_dims.get(opt.model)  
