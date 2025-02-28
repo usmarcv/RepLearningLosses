@@ -87,17 +87,9 @@ def parse_option():
     # check if dataset is path that passed required arguments
     if opt.dataset == 'path':
         #opt.data_folder is not None
-        opt.mean is not None
-        opt.std is not None
+        # opt.mean is not None
+        # opt.std is not None
         opt.n_cls is not None
-
-    # set the path according to the environment
-    #if opt.dataset == 'imagenet100':
-    #    opt.data_folder = '/cluster/tufts/hugheslab/datasets/ImageNet100/train/'
-    #elif opt.dataset == 'imagenet':
-    #    opt.data_folder = '/cluster/tufts/hugheslab/datasets/ImageNet/train/'
-    #else:
-    #    opt.data_folder = './datasets/'
 
     # set the path according to the environment
     if opt.data_folder is None:
@@ -152,7 +144,7 @@ def parse_option():
     return opt
 
 
-def set_loader(opt, contrast_trans=False, for_test=False):
+def set_loader(opt, contrast_trans=False, valid=False):
     
     if opt.dataset == 'cifar10':
         mean = (0.4914, 0.4822, 0.4465)
@@ -161,8 +153,9 @@ def set_loader(opt, contrast_trans=False, for_test=False):
         mean = (0.5071, 0.4867, 0.4408)
         std = (0.2675, 0.2565, 0.2761)
     elif opt.dataset == 'path':
-        mean = eval(opt.mean)
-        std = eval(opt.std)
+        #ImageNet mean and std
+        mean = (0.485, 0.456, 0.406)
+        std = (0.229, 0.224, 0.225)
     else:
         raise ValueError('dataset not supported: {}'.format(opt.dataset))
     
@@ -180,7 +173,7 @@ def set_loader(opt, contrast_trans=False, for_test=False):
                             transforms.ToTensor(),
                             normalize,
         ]))
-        if for_test: #Validation Split
+        if valid: #Validation Split
             val_transform = train_transform
     else: #Non-contrastive data transforms == False / main_ce.py or main_linear.py
         train_transform = transforms.Compose([
@@ -211,47 +204,33 @@ def set_loader(opt, contrast_trans=False, for_test=False):
                                          train=False,
                                          transform=val_transform)
     elif opt.dataset == 'path':
-        # train_files = 'Datasets/KFolds/SKF_TRAIN_Fold_1.csv'
-        # val_files = 'Datasets/KFolds/SKF_VAL_Fold_1.csv'
-        train_dataset = CustomDatasetFromCSV(opt.root_path, tf_image=train_transform, csv_name=opt.train_files, task=None, as_rgb=True)
-        val_dataset = CustomDatasetFromCSV(opt.root_path, tf_image=val_transform, csv_name=opt.val_files, task=None, as_rgb=True)
+        if opt.root_path is not None:
+            train_dataset = CustomDatasetFromCSV(opt.root_path, tf_image=train_transform, csv_name=opt.train_files, task=None, as_rgb=True)
+            val_dataset = CustomDatasetFromCSV(opt.root_path, tf_image=val_transform, csv_name=opt.val_files, task=None, as_rgb=True)
+        else: 
+            #Load from folders
+            train_dataset = datasets.ImageFolder(root=opt.data_folder + "/train/",
+                                                transform=train_transform)
+            val_dataset = datasets.ImageFolder(root=opt.data_folder + "/val/",
+                                                transform=val_transform)
     else:
         raise ValueError(f'Dataset', opt.dataset, 'not supported')
     
-    # #Construct train and test data loaders
-    # if opt.dataset == 'path': #Load from folders
-    #     train_dataset = datasets.ImageFolder(root=opt.data_folder + "/train/",
-    #                                             transform=train_transform)
-    #     val_loader = datasets.ImageFolder(root=opt.data_folder + "/val/",
-    #                                             transform=val_transform)
-    # else: #Load from fcsv
+    
     train_loader = DataLoader(train_dataset,
                                 batch_size=opt.batch_size,
                                 num_workers=opt.num_workers,
                                 pin_memory=True,
                                 shuffle=True)
+    
     val_loader = DataLoader(val_dataset,
                                 batch_size=opt.batch_size,
                                 num_workers=opt.num_workers,    
                                 pin_memory=True,
                                 shuffle=False)
-
-    # compute mean and STD used above (use test transform without normalization)
-    # code from https://discuss.pytorch.org/t/about-normalization-using-pre-trained
-    # -vgg16-networks/23560/5?u=kuzand
-    # mean = 0.
-    # std = 0.
-    # nb_samples = 0.
-    # for data, _ in train_loader:
-    #     batch_samples = data.size(0)
-    #     data = data.view(batch_samples, data.size(1), -1)
-    #     mean += data.mean(2).sum(0)
-    #     std += data.std(2).sum(0)
-    #     nb_samples += batch_samples
-    # mean /= nb_samples
-    # std /= nb_samples
-    # print(mean)
-    # print(std)
+                               
+    # Compute mean and STD used above (use test transform without normalization)
+    # Code from https://discuss.pytorch.org/t/about-normalization-using-pre-trained-vgg16-networks/23560/6
 
     return train_loader, val_loader
 
@@ -376,7 +355,7 @@ def main():
     opt = parse_option()
 
     # build data loader
-    train_loader, _, val_loader = set_loader(opt)
+    train_loader, val_loader, test_loader = set_loader(opt, contrast_trans=False, valid=True, test=True)
 
     # build model and criterion
     model, criterion = set_model(opt)
