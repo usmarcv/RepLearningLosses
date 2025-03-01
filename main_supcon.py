@@ -287,20 +287,25 @@ def set_loader(opt, contrast_trans=True, valid=True, fold=None):
             normalize,
         ]) if valid else None
     
-    # Criando dataset com os folds
-    dataset = CustomDatasetFromCSV(
-        path_root=opt.root_path,
-        tf_image=train_transform,
-        csv_name=opt.train_files,
-        as_rgb=True,
-        val_fold=fold
-    )
+    # # Criando dataset com os folds
+    # dataset = CustomDatasetFromCSV(
+    #     path_root=opt.root_path,
+    #     tf_image=train_transform,
+    #     csv_name=opt.train_files,
+    #     as_rgb=True,
+    #     val_fold=fold,
+    #     is_val=True
+    # )
+
+    train_dataset = CustomDatasetFromCSV(opt.root_path, train_transform, opt.train_files, as_rgb=True, val_fold=fold, is_val=False)
+    valid_dataset = CustomDatasetFromCSV(opt.root_path, val_transform, opt.train_files, as_rgb=True, val_fold=fold, is_val=True)
+
     
-    train_indices = dataset.train_data.index.tolist()
-    valid_indices = dataset.val_data.index.tolist()
+    # train_indices = dataset.train_data.index.tolist()
+    # valid_indices = dataset.val_data.index.tolist()
     
-    train_dataset = torch.utils.data.Subset(dataset, train_indices)
-    valid_dataset = torch.utils.data.Subset(dataset, valid_indices) if valid else None
+    # train_dataset = torch.utils.data.Subset(dataset, train_indices)
+    # valid_dataset = torch.utils.data.Subset(dataset, valid_indices) if valid else None
 
     # Criando DataLoaders
     train_loader = DataLoader(train_dataset, 
@@ -308,9 +313,9 @@ def set_loader(opt, contrast_trans=True, valid=True, fold=None):
                               shuffle=True, 
                               num_workers=opt.num_workers)
     
-    valid_loader = None
-    if valid_dataset is not None:
-        valid_loader = DataLoader(valid_dataset, 
+    # valid_loader = None
+    # if valid_dataset is not None:
+    valid_loader = DataLoader(valid_dataset, 
                                   batch_size=opt.batch_size, 
                                   shuffle=False, 
                                   num_workers=opt.num_workers)
