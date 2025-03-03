@@ -5,6 +5,8 @@ save_giva_Servers/
 oxford-iiit-pet/
 save_only_selecteds/
 checkpoints/
+ModelNet10/
+Datasets/
 
 #chekpoints torch and tensorboard
 *.pth
