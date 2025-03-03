@@ -125,16 +125,6 @@ def parse_option():
     if opt.data_folder is None:
         opt.data_folder = './datasets/'
 
-    # set the path according to the environment
-    # # [REVISAR...]talvez a gente nem precise desse trecho abaixo...
-    # if opt.data_folder is None:
-    #     if opt.dataset == 'imagenet100':
-    #         opt.data_folder = '/cluster/tufts/hugheslab/datasets/ImageNet100/train/'
-    #     elif opt.dataset == 'imagenet':
-    #         opt.data_folder = '/cluster/tufts/hugheslab/datasets/ImageNet/train/'
-    #     else:
-    #         opt.data_folder = './datasets/'
-
     opt.model_path = './save/SupCon/{}_models'.format(opt.dataset)
     opt.tb_path = './save/SupCon/{}_tensorboard'.format(opt.dataset)
 
@@ -182,79 +172,7 @@ def parse_option():
     return opt
 
 
-# def set_loader(opt, contrast_trans=True, valid=True, fold=None):
-
-#     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    
-#     if contrast_trans:
-#         train_transform = TwoCropTransform(transforms.Compose([
-#             transforms.RandomResizedCrop(size=opt.size, scale=(0.2, 1.)),
-#             transforms.RandomHorizontalFlip(),
-#             transforms.RandomApply([
-#                 transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)
-#             ], p=0.8),
-#             transforms.RandomGrayscale(p=0.2),
-#             transforms.ToTensor(),
-#             normalize,
-#         ]))
-#         val_transform = transforms.Compose([
-#             transforms.Resize([opt.size, opt.size]),
-#             transforms.ToTensor(),
-#             normalize,
-#         ]) if valid else None
-#     else:
-#         train_transform = transforms.Compose([
-#             transforms.RandomResizedCrop(size=opt.size, scale=(0.2, 1.)),
-#             transforms.RandomHorizontalFlip(),
-#             transforms.ToTensor(),
-#             normalize,
-#         ])
-#         val_transform = transforms.Compose([
-#             transforms.Resize([opt.size, opt.size]),
-#             transforms.ToTensor(),
-#             normalize,
-#         ]) if valid else None
-    
-    
-#     #Train dataset
-#     dataset = CustomDatasetFromCSV(
-#         path_root=opt.root_path,
-#         tf_image=None,
-#         csv_name=opt.train_files,
-#         as_rgb=True,
-#         val_fold=fold
-#     )
-        
-   
-#     train_dataset = torch.utils.data.Subset(
-#         CustomDatasetFromCSV(opt.root_path, train_transform, opt.train_files, as_rgb=True),
-#         train_indices
-#     )
-
-#     # valid_dataset = None
-#     if valid:
-#         valid_dataset = torch.utils.data.Subset(
-#             CustomDatasetFromCSV(opt.root_path, val_transform, opt.train_files, as_rgb=True),
-#             valid_indices
-#         )
-
-#     # Criar DataLoaders
-#     train_loader = DataLoader(train_dataset, 
-#                               batch_size=opt.batch_size, 
-#                               shuffle=True, 
-#                               num_workers=opt.num_workers)
-    
-#     # valid_loader = None
-#     if valid_dataset is not None:
-#         valid_loader = DataLoader(valid_dataset, 
-#                                   batch_size=opt.batch_size, 
-#                                   shuffle=False, 
-#                                   num_workers=opt.num_workers)
-        
-    
-#     return train_loader, valid_loader
-
-def set_loader(opt, contrast_trans=True, valid=True, fold=None):
+def set_loader(opt, contrast_trans=True, fold=None):
 
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     
@@ -269,11 +187,11 @@ def set_loader(opt, contrast_trans=True, valid=True, fold=None):
             transforms.ToTensor(),
             normalize,
         ]))
-        val_transform = transforms.Compose([
-            transforms.Resize([opt.size, opt.size]),
-            transforms.ToTensor(),
-            normalize,
-        ]) if valid else None
+        # val_transform = transforms.Compose([
+        #     transforms.Resize([opt.size, opt.size]),
+        #     transforms.ToTensor(),
+        #     normalize,
+        # ]) if valid else None
     else:
         train_transform = transforms.Compose([
             transforms.RandomResizedCrop(size=opt.size, scale=(0.2, 1.)),
@@ -281,44 +199,43 @@ def set_loader(opt, contrast_trans=True, valid=True, fold=None):
             transforms.ToTensor(),
             normalize,
         ])
-        val_transform = transforms.Compose([
-            transforms.Resize([opt.size, opt.size]),
-            transforms.ToTensor(),
-            normalize,
-        ]) if valid else None
+        # val_transform = transforms.Compose([
+        #     transforms.Resize([opt.size, opt.size]),
+        #     transforms.ToTensor(),
+        #     normalize,
+        # ]) if valid else None
     
     # # Criando dataset com os folds
-    # dataset = CustomDatasetFromCSV(
-    #     path_root=opt.root_path,
-    #     tf_image=train_transform,
-    #     csv_name=opt.train_files,
-    #     as_rgb=True,
-    #     val_fold=fold,
-    #     is_val=True
-    # )
+    train_dataset = CustomDatasetFromCSV(
+        path_root=opt.root_path,
+        tf_image=train_transform,
+        csv_name=opt.train_files,
+        val_fold=fold,
+        train=True
+    )
 
-    train_dataset = CustomDatasetFromCSV(opt.root_path, train_transform, opt.train_files, as_rgb=True, val_fold=fold, is_val=False)
-    valid_dataset = CustomDatasetFromCSV(opt.root_path, val_transform, opt.train_files, as_rgb=True, val_fold=fold, is_val=True)
+    val_dataset = CustomDatasetFromCSV(
+        path_root=opt.root_path,
+        tf_image=train_transform,
+        csv_name=opt.train_files,
+        val_fold=fold,
+        train=False
+    )
 
     
-    # train_indices = dataset.train_data.index.tolist()
-    # valid_indices = dataset.val_data.index.tolist()
-    
-    # train_dataset = torch.utils.data.Subset(dataset, train_indices)
-    # valid_dataset = torch.utils.data.Subset(dataset, valid_indices) if valid else None
-
     # Criando DataLoaders
     train_loader = DataLoader(train_dataset, 
                               batch_size=opt.batch_size, 
                               shuffle=True, 
-                              num_workers=opt.num_workers)
+                              num_workers=opt.num_workers,
+                              pin_memory=True)
     
-    # valid_loader = None
-    # if valid_dataset is not None:
-    valid_loader = DataLoader(valid_dataset, 
-                                  batch_size=opt.batch_size, 
-                                  shuffle=False, 
-                                  num_workers=opt.num_workers)
+  
+    valid_loader = DataLoader(val_dataset, 
+                                batch_size=opt.batch_size, 
+                                shuffle=False, 
+                                num_workers=opt.num_workers,
+                                pin_memory=True)
     
     return train_loader, valid_loader
 
@@ -448,25 +365,15 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
     return 
 
 
-def valid(train_loader, valid_loader, model, criterion, epoch, opt, logger, val_is_test=False):
+def valid(train_loader, valid_loader, model, criterion, epoch, opt, logger):
     """validation"""
-    # logger = None #From tensorboard
-    # val_is_test = None
 
-    # Define as dimensões de embeddings para diferentes arquiteturas
-    # Reajustar para não chamar toda vez
-    embedding_dims = {
+    embedding_dim = {  
         'resnet50': 128,
-        'vit_small': 384,
-        'vit_base': 768,
-        'vit_large': 1024,
-        "dino_vit_small_p_16": 384,
-        "dino_vit_small_p_8": 384,
-        "dino_vit_base_p_16": 768,
-        "dino_vit_base_p_8": 768
-    }
-    
-    embedding_dim = embedding_dims.get(opt.model)  
+        'vit_small': 384, 'vit_base': 768, 
+        'dino_vit_small_p_16': 384, 'dino_vit_small_p_8': 384,
+        'dino_vit_base_p_16': 768, 'dino_vit_base_p_8': 768
+    }.get(opt.model)
 
     #Caches to training/valid/test
     train_embeds = torch.empty((0, embedding_dim))
@@ -514,7 +421,6 @@ def valid(train_loader, valid_loader, model, criterion, epoch, opt, logger, val_
                 train_labels = torch.hstack((train_labels, labels.cpu()))
             else:
                 # cache valid/test outputs
-                # if val_is_test:
                 test_embeds = torch.vstack((test_embeds, embeds[:, 0].cpu()))
                 test_labels = torch.hstack((test_labels, labels.cpu()))
                 # compute validation accuracy
@@ -554,38 +460,49 @@ def valid(train_loader, valid_loader, model, criterion, epoch, opt, logger, val_
                         data_time=av_data_time, loss=av_losses))
                 sys.stdout.flush()
 
-    if "device" not in opt or opt.device == 0 and not is_train:
+    if "device" not in opt or opt.device == 0:
         # tensorboard logger
-        if val_is_test and logger is not None:
-            print(f"Logger: {logger}")
-            log_folder = "valid/"
-            logger.add_scalar(f"{log_folder}{str(opt.method)}Valid Loss", av_losses.avg, epoch)
-            logger.add_scalar(f"{log_folder}Valid Top 1 Accuracy", av_acc_top_1.avg, epoch)
-            logger.add_scalar(f"{log_folder}Valid Top 5 Accuracy", av_acc_top_5.avg, epoch)
-        else:
-            # print output
-            print(f"Test {str(opt.method)} Loss: {av_losses.avg}")
-            print(f"Test Top 1 Accuracy: {av_acc_top_1.avg}")
-            print(f"Test Top 5 Accuracy: {av_acc_top_5.avg}")
-            # save caches
-            torch.save(train_embeds, os.path.join(opt.save_folder, "train_embeds.pth"))
-            torch.save(train_labels, os.path.join(opt.save_folder, "train_labels.pth"))
-            torch.save(test_embeds, os.path.join(opt.save_folder, "test_embeds.pth"))
-            torch.save(test_labels, os.path.join(opt.save_folder, "test_labels.pth"))
+        # if val_is_test and logger is not None:
+        # print(f"Logger: {logger}")
+        log_folder = "valid/"
+        logger.add_scalar(f"{log_folder}{str(opt.method)}Valid Loss", av_losses.avg, epoch)
+        logger.add_scalar(f"{log_folder}Valid Top 1 Accuracy", av_acc_top_1.avg, epoch)
+        logger.add_scalar(f"{log_folder}Valid Top 5 Accuracy", av_acc_top_5.avg, epoch)
+    # else:
+        # print output
+        print(f"Valid/test {str(opt.method)} Loss: {av_losses.avg}")
+        print(f"Valid/test Top 1 Accuracy: {av_acc_top_1.avg}")
+        print(f"Valid/test Top 5 Accuracy: {av_acc_top_5.avg}")
+        # save caches
+        torch.save(train_embeds, os.path.join(opt.save_folder, "train_embeds.pth"))
+        torch.save(train_labels, os.path.join(opt.save_folder, "train_labels.pth"))
+        torch.save(test_embeds, os.path.join(opt.save_folder, "valid_embeds.pth"))
+        torch.save(test_labels, os.path.join(opt.save_folder, "valid_labels.pth"))
 
-def test(model, criterion, opt, fold):
-    train_loader, valid_loader = set_loader(opt, contrast_trans=True, valid=True, fold=fold)
-    valid(train_loader, valid_loader, model, criterion, 0, opt, logger=None)
-    #valid(train_loader, test_loader, model, criterion, 0, opt, logger=None)
+    return av_losses.avg, av_acc_top_1.avg, av_acc_top_5.avg
+
+# def test(model, criterion, opt, fold):
+#     train_loader, valid_loader = set_loader(opt, contrast_trans=True, fold=fold)
+#     valid(train_loader, valid_loader, model, criterion, 0, opt, logger=None)
+#     #valid(train_loader, test_loader, model, criterion, 0, opt, logger=None)
+
 
 def main(opt):
-    
+    all_losses = []
+    all_acc_top1 = []
+    all_acc_top5 = []
+
     for fold in range(opt.num_folds):
         print(f"\n[INFO] Training model on fold {fold}...")
-        
+
+        train_loader, valid_loader = None, None
+
         # build data loader for each fold
-        train_loader, valid_loader = set_loader(opt, fold=fold)
+        train_loader, valid_loader = set_loader(opt, contrast_trans=True, fold=fold)
         
+        print(f"Tamanho do train_loader: {len(train_loader)} batches")
+        print(f"Tamanho do val_loader: {len(valid_loader)} batches")
+
         # build model
         model, criterion = set_model(opt)
         
@@ -604,8 +521,9 @@ def main(opt):
             train(train_loader, model, criterion, optimizer, epoch, opt, logger)
             time2 = time.time()
             
-            if epoch % 1 == 0 and valid_loader is not None:
-                valid(train_loader, valid_loader, model, criterion, epoch, opt, logger, val_is_test=False)
+            #Validation after ends of epoch to another k-folds
+            # if valid_loader is not None:
+            #     valid(train_loader, valid_loader, model, criterion, epoch, opt, logger)
             
             print('epoch {}, fold {}, total time {:.2f}'.format(epoch, fold, time2 - time1))
             
@@ -613,66 +531,18 @@ def main(opt):
                 save_file = os.path.join(
                     opt.save_folder, f'ckpt_fold_{fold}_epoch_{epoch}.pth')
                 save_model(model, optimizer, opt, epoch, save_file)
-        
-
+                
+        #Validation after ends of epoch to another k-folds
+        valid(train_loader, valid_loader, model, criterion, epoch, opt, logger),
+    
     # Save the last model for this fold
     save_file = os.path.join(opt.save_folder, f'last_fold_{fold}.pth')
     save_model(model, optimizer, opt, opt.epochs, save_file)
         
     # Print test statistics for this fold
-    test(model, criterion, opt, fold)
+    # valid(train_loader, valid_loader, model, criterion, epoch, opt, logger)
 
-
-# def main(opt):
-#     # build data loader
-#     train_loader, valid_loader = set_loader(opt, contrast_trans=True, valid=True)
-
-#     # build model
-#     model, criterion = set_model(opt)
-
-#     # build optimizer
-#     optimizer = set_optimizer(opt, model)
-
-#     #Tensorboard, only for first process if multiple
-#     if "device" not in opt or opt.device == 0:
-#         logger = SummaryWriter(log_dir=opt.tb_folder)
-
-#     # training routine
-#     print('\n[INFO] Training model with stage one...')
-#     for epoch in range(1, opt.epochs + 1):
-       
-#         adjust_learning_rate(opt, optimizer, epoch)
-
-#         #Train for one epoch
-#         time1 = time.time()
-#         # train(train_loader, model, optimizer, epoch, opt, logger)
-#         train(train_loader, model, criterion, optimizer, epoch, opt, logger)
-#         time2 = time.time()
-
-#         #Use valid_loader if present for one epoch
-#         if epoch % 1 == 0 and valid_loader is not None:
-#             valid(train_loader, valid_loader, model, criterion, epoch, opt, logger)
-        
-#          # print final accuracy for the test set evaluation run
-#         # elif epoch == opt.epochs:
-#         #     print("\nFinal test set evaluation:")
-#         #     valid(train_loader, test_loader, model, criterion, epoch, opt, logger)
-
-#         print('epoch {}, total time {:.2f}'.format(epoch, time2 - time1))
-        
-#         #Checkpoint
-#         if epoch % opt.save_freq == 0:
-#             save_file = os.path.join(
-#                 opt.save_folder, 'ckpt_epoch_{epoch}.pth'.format(epoch=epoch))
-#             save_model(model, optimizer, opt, epoch, save_file)
-
-#     #Save the last model
-#     save_file = os.path.join(
-#         opt.save_folder, 'last.pth')
-#     save_model(model, optimizer, opt, opt.epochs, save_file)
-
-#     #Print test statistics
-#     test(model, criterion, opt)
+    #test(model, criterion, opt, fold)
 
 
 def launch_parallel(rank, world_size):
