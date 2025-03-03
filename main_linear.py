@@ -334,18 +334,14 @@ def cache_outputs(val_loader, model, classifier, opt):
     print("Model used: ", opt.model)
 
     # Define as dimensões de embeddings para diferentes arquiteturas
-    embedding_dims = {
+    embedding_dim = {  
         'resnet50': 2048,
-        'vit_small': 384,
-        'vit_base': 768,
-        'vit_large': 1024,
-        'dino_vit_small_p_16': 384,
-        'dino_vit_small_p_8': 384,
-        'dino_vit_base_p_16': 768,
-        'dino_vit_base_p_8': 768
-    }
+        'vit_small': 384, 'vit_base': 768, 
+        'dino_vit_small_p_16': 384, 'dino_vit_small_p_8': 384,
+        'dino_vit_base_p_16': 768, 'dino_vit_base_p_8': 768
+    }.get(opt.model)
     
-    embedding_dim = embedding_dims.get(opt.model)  
+    embedding_dim = embedding_dim.get(opt.model)  
     embeds = torch.empty((0, int(embedding_dim)))
     preds = torch.empty((0, opt.n_cls))
     labels = torch.empty((0,))
