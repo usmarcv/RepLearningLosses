@@ -1,18 +1,16 @@
 from __future__ import print_function
 
-import math
-from typing import Sequence
-
-import numpy as np
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import Subset
-from torch.utils.data.dataset import Dataset
-
 import os
+import math
+import torch
+import numpy as np
 import pandas as pd
 from PIL import Image
+import torch.nn as nn
+import torch.optim as optim
+from typing import Sequence
+from torch.utils.data import Subset
+from torch.utils.data.dataset import Dataset
 
 
 class SubsetWithTargets(Subset):
@@ -128,169 +126,7 @@ def save_model(model, optimizer, opt, epoch, save_file):
     del state
 
 
-
-
-# class CustomDatasetFromCSV(Dataset):
-#     """Custom dataset para importar imagens a partir de um CSV, com suporte a folds."""
-    
-#     def __init__(self, path_root, tf_image, csv_name, as_rgb=False, val_fold=None, is_val=False):
-#         """
-#         Args:
-#             path_root (str): Diretório raiz onde as imagens estão armazenadas.
-#             tf_image (callable): Transformações a serem aplicadas às imagens.
-#             csv_name (str): Caminho para o arquivo CSV contendo os metadados.
-#             as_rgb (bool, optional): Se True, converte as imagens para RGB. Default é False.
-#             val_fold (int, optional): Número do fold usado para validação.
-#             is_val (bool, optional): Define se o dataset será de validação.
-#         """
-#         self.full_data = pd.read_csv(csv_name)
-#         self.as_rgb = as_rgb
-#         self.tf_image = tf_image
-#         self.root = path_root
-#         self.cl_name = {c: i for i, c in enumerate(np.unique(self.full_data['label']))}
-#         self.BARVALUE = "/" if not os.name == "nt" else "\\"
-
-#         # Filtra apenas os dados relevantes para treino ou validação
-#         if val_fold is not None:
-#             if is_val:
-#                 self.data = self.full_data[self.full_data["fold"] == val_fold]  # Somente validação
-#             # else:
-#                 self.data = self.full_data[self.full_data["fold"] != val_fold] # Somente treino
-#         else:
-#             self.data = self.full_data  # Usa todos os dados se nenhum fold for passado
-
-#     def __len__(self):
-#         return len(self.full_data)
-    
-#     def __getitem__(self, idx):
-#         if torch.is_tensor(idx):
-#             idx = idx.tolist()
-        
-#         x_path = os.path.join(self.root, self.full_data.iloc[idx, 0])
-#         y = self.cl_name[self.full_data.iloc[idx, 1]]
-        
-#         X = Image.open(x_path)
-#         if self.as_rgb:
-#             X = X.convert("RGB")
-        
-#         if self.tf_image:
-#             X = self.tf_image(X)
-        
-#         return X, y
-
-
-# class CustomDatasetFromCSV(Dataset):
-#     """Custom dataset para importar imagens a partir de um CSV, com suporte a folds."""
-    
-#     def __init__(self, path_root, tf_image, csv_name, as_rgb=False, val_fold=None):
-#         """
-#         Args:
-#             path_root (str): Diretório raiz onde as imagens estão armazenadas.
-#             tf_image (callable): Transformações a serem aplicadas às imagens.
-#             csv_name (str): Caminho para o arquivo CSV contendo os metadados.
-#             as_rgb (bool, optional): Se True, converte as imagens para RGB. Default é False.
-#         """
-#         self.data = pd.read_csv(csv_name)
-#         self.as_rgb = as_rgb
-#         self.tf_image = tf_image
-#         self.root = path_root
-#         self.cl_name = {c: i for i, c in enumerate(np.unique(self.data['label']))}
-#         self.BARVALUE = "/" if not os.name == "nt" else "\\"
-
-#         if val_fold is not None:
-#             self.train_data = self.data[self.data["fold"] != val_fold]  # Dados de treino (exclui o fold de validação)
-#             self.val_data = self.data[self.data["fold"] == val_fold]    # Dados de validação (apenas o fold selecionado)
-#         # else:
-#         #     self.train_data = self.data  # Se nenhum fold for passado, usa todos os dados para treino
-#         #     self.val_data = pd.DataFrame(columns=self.data.columns)  # DataFrame vazio para evitar erros
-    
-#     def __len__(self):
-#         return len(self.data)
-    
-#     def __getitem__(self, idx):
-#         if torch.is_tensor(idx):
-#             idx = idx.tolist()
-        
-#         x_path = os.path.join(self.root, self.data.iloc[idx, 0])
-#         y = self.cl_name[self.data.iloc[idx, 1]]
-        
-#         X = Image.open(x_path)
-#         if self.as_rgb:
-#             X = X.convert("RGB")
-        
-#         if self.tf_image:
-#             X = self.tf_image(X)
-        
-#         return X, y
-
-#Copy pasted from https://pytorch.org/tutorials/beginner/basics/data_tutorial.html?highlight=dataset
-# class CustomImageDataset(Dataset):
-
-#     def __init__(self, annotations_file, img_dir, transform=None, target_transform=None):
-#         self.img_labels = pd.read_csv(annotations_file)
-#         self.img_dir = img_dir
-#         self.transform = transform
-#         self.target_transform = target_transform
-
-#     def __len__(self):
-#         return len(self.img_labels)
-
-#     def __getitem__(self, idx):
-#         img_path = os.path.join(self.img_dir, self.img_labels.iloc[idx, 0])
-#         image = read_image(img_path)
-#         label = self.img_labels.iloc[idx, 1]
-#         if self.transform:
-#             image = self.transform(image)
-#         if self.target_transform:
-#             label = self.target_transform(label)
-#         return image, label
-
-import os
-import torch
-import pandas as pd
-import numpy as np
-from torch.utils.data import Dataset
-from PIL import Image
-
-# class CustomDatasetFromCSV(Dataset):
-#     """
-#     Custom dataset to load images from a CSV file.
-#     CSV structure: image_path,label,fold
-#     """    
-#     def __init__(self, path_root, tf_image=None, csv_name=None, as_rgb=False, fold=None, exclude_fold=False):
-#         self.data = pd.read_csv(csv_name)
-#         self.as_rgb = as_rgb
-#         if fold is not None:
-#             if exclude_fold:
-#                 self.data = self.data[self.data["fold"] != fold]
-#             else:
-#                 self.data = self.data[self.data["fold"] == fold]
-        
-#         self.tf_image = tf_image
-#         self.root = path_root
-        
-#         # Map class labels to indices
-#         self.cl_name = {c: i for i, c in enumerate(np.unique(self.data["label"]))}
-        
-#     def __len__(self):
-#         return len(self.data)
-    
-#     def __getitem__(self, idx):
-#         if torch.is_tensor(idx):
-#             idx = idx.tolist()
-        
-#         x_path = os.path.join(self.root, self.data.iloc[idx, 0])
-#         y = self.cl_name[self.data.iloc[idx, 1]]
-        
-#         X = Image.open(x_path)
-#         if self.as_rgb:
-#             X = X.convert("RGB")
-        
-#         if self.tf_image:
-#             X = self.tf_image(X)
-        
-#         return X, y
-
+#Based on: https://github.com/eriksonJAguiar/RADAR_MIX/blob/main/utils/utils.py#L530
 class CustomDatasetFromCSV(Dataset):
     """
     Custom dataset for loading images from a CSV file with columns: image_path, label, fold
@@ -323,84 +159,5 @@ class CustomDatasetFromCSV(Dataset):
 
         if self.tf_image:
             X = self.tf_image(X)
-        
-        # print(f"Shape da imagem carregada: {X.shape}")  # Debugando o tamanho da imagem
-        
+                
         return X, y
-
-
-# class CustomDatasetFromCSV(Dataset):
-#     """Generating custom dataset for importing images from csv
-#     """    
-#     def __init__(self, path_root, tf_image, csv_name, as_rgb=False, task=None):
-
-#         self.data = pd.read_csv(csv_name)
-#         self.as_rgb = as_rgb
-#         if task is not None:
-#             self.data.query("Fold == @task", inplace=True)
-#         self.tf_image = tf_image
-#         self.root = path_root
-#         self.cl_name = {c: i for i, c in enumerate(np.unique(self.data["label"]))}
-#         self.BARVALUE = "/" if not os.name == "nt" else "\\"
-    
-#     def __len__(self):
-#         return len(self.data)
-    
-#     def __getitem__(self, idx):
-#         if torch.is_tensor(idx):
-#             idx = idx.tolist()
-        
-#         x_path = os.path.join(self.root, self.data.iloc[idx, 0])
-#         y = self.cl_name[self.data.iloc[idx, 1]]
-        
-#         X = Image.open(x_path).convert("RGB") 
-        
-#         if self.tf_image:
-#             X = self.tf_image(X)
-        
-#         return X, y
-    
-# class CustomDatasetFromCSV(Dataset):
-#     """Custom dataset para importar imagens a partir de um CSV, com suporte a folds."""
-    
-#     def __init__(self, path_root, tf_image, csv_name, as_rgb=False, fold=None):
-#         """
-#         Args:
-#             path_root (str): Diretório raiz onde as imagens estão armazenadas.
-#             tf_image (callable): Transformações a serem aplicadas às imagens.
-#             csv_name (str): Caminho para o arquivo CSV contendo os metadados.
-#             as_rgb (bool, optional): Se True, converte as imagens para RGB. Default é False.
-#             task (str, optional): Filtra os dados para uma tarefa específica.
-#             fold (int, optional): Filtra os dados para um fold específico.
-#         """
-#         self.data = pd.read_csv(csv_name)
-#         self.as_rgb = as_rgb
-        
-#         if fold is not None:
-#             self.train_data = self.data[self.data["fold"] != fold].index.tolist() # train data is all folds except fold validation
-#             self.val_data = self.data[self.data["fold"] == fold].index # only validation fold data is used
-        
-#         self.tf_image = tf_image
-#         self.root = path_root
-#         self.cl_name = {c: i for i, c in enumerate(np.unique(self.data["label"]))}
-#         self.BARVALUE = "/" if not os.name == "nt" else "\\"
-    
-#     def __len__(self):
-#         return len(self.data)
-    
-#     def __getitem__(self, idx):
-#         if torch.is_tensor(idx):
-#             idx = idx.tolist()
-        
-#         x_path = os.path.join(self.root, self.data.iloc[idx, 0])
-#         y = self.cl_name[self.data.iloc[idx, 1]]
-        
-#         X = Image.open(x_path)
-#         if self.as_rgb:
-#             X = X.convert("RGB")
-        
-#         if self.tf_image:
-#             X = self.tf_image(X)
-        
-#         return X, y
-
