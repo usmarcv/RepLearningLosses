@@ -38,8 +38,25 @@ class DoubleTransform:
         return [self.transform1(x), self.transform2(x)]
 
 
+# class AverageMeter(object):
+#     """Computes and stores the average and current value"""
+#     def __init__(self):
+#         self.reset()
+
+#     def reset(self):
+#         self.val = 0
+#         self.avg = 0
+#         self.sum = 0
+#         self.count = 0
+
+#     def update(self, val, n=1):
+#         self.val = val
+#         self.sum += val * n
+#         self.count += n
+#         self.avg = self.sum / self.count
+
 class AverageMeter(object):
-    """Computes and stores the average and current value"""
+    """Computes and stores the average, current value, and history"""
     def __init__(self):
         self.reset()
 
@@ -48,12 +65,14 @@ class AverageMeter(object):
         self.avg = 0
         self.sum = 0
         self.count = 0
+        self.history = [] 
 
     def update(self, val, n=1):
         self.val = val
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
+        self.history.append(val) 
 
 
 def accuracy(output, target, topk=(1,)):
