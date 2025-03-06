@@ -150,15 +150,20 @@ class CustomDatasetFromCSV(Dataset):
     """
     Custom dataset for loading images from a CSV file with columns: image_path, label, fold
     Automatically splits into train/val based on a fold.
+
+    Returns:
+        X (Image): Image data
+        y (int): Label
     """    
+        
     def __init__(self, path_root, tf_image=None, csv_name=None, val_fold=None, train=True):
         self.data = pd.read_csv(csv_name)
         
         if val_fold is not None:
             if train:
-                self.data = self.data[self.data["fold"] != val_fold]  # Usar todos os folds exceto o de validação
+                self.data = self.data[self.data["fold"] != val_fold]  #Use all folds except the validation fold
             else:
-                self.data = self.data[self.data["fold"] == val_fold]  # Usar apenas o fold de validação
+                self.data = self.data[self.data["fold"] == val_fold]  #Use only the validation fold
         
         self.tf_image = tf_image
         self.root = path_root
