@@ -6,6 +6,24 @@ from torchvision.models import resnet50, ResNet50_Weights
 
 
 def load_pretrained_model(model_name):
+    """Load a pre-trained model from the timm library or from the DINO repository.
+
+    Args:
+        model_name (str): Model name to be loaded. Supported models are:
+            - resnet50
+            - vit_small
+            - vit_base
+            - dino_vit_small_p_16
+            - dino_vit_small_p_8
+            - dino_vit_base_p_16
+            - dino_vit_base_p_8
+
+    Raises:
+        ValueError: Unsupported model name.
+
+    Returns:
+        model (torch.nn.Module): Model with pre-trained weights based on the model_name.
+    """    
 
     model_mapping = {
         "resnet50": ("resnet50", 128),
