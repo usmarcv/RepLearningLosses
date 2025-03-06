@@ -5,39 +5,28 @@ import sys
 import argparse
 import time
 import math
-
 import numpy as np
-
 import torch
 import torch.backends.cudnn as cudnn
 from torch.utils.tensorboard import SummaryWriter
 
+#Metrics
 from contrast_acc import contrastive_acc, test_contrastive_acc, test_contrastive_acc_knn
-# from main_ce import set_loader
-from util import AverageMeter, adjust_learning_rate, warmup_learning_rate, set_optimizer, save_model
-
+#Utils
+from util import AverageMeter, adjust_learning_rate, warmup_learning_rate, set_optimizer, save_model, TwoCropTransform, CustomDatasetFromCSV
 #Networks
 from networks.pretrained_models import load_pretrained_model
-# import timm
-# import networks.vit as vits #From scratch ViT models
-# from networks.dino_models import load_dino_model, download_checkpoint, MultiCropWrapper
-# from networks.resnet_big import SupConResNet #From scratch ResNet models
-# from torchvision.models import resnet50, ResNet50_Weights
-
 #Losses
 from losses import SupConLoss, MultiviewSINCERELoss, MultiviewEpsSupInfoNCELoss, InfoNCELoss
-
+#Dataset
 from torch.utils.data import DataLoader
 from torchvision import transforms
-
-from util import AverageMeter, TwoCropTransform, CustomDatasetFromCSV
-
-import util
 
 
 __all_models = ['resnet50', 
                 'vit_small', 'vit_base', 
                 'dino_vit_small_p_16', 'dino_vit_small_p_8', 'dino_vit_base_p_16', 'dino_vit_base_p_8']
+
 
 def parse_option():
 
@@ -106,9 +95,7 @@ def parse_option():
     parser.add_argument('--trial', type=str, default='0',
                         help='id for recording multiple runs')
     
-
     #Experimental Dataset Settings
-    #Testando com dataset com folds
     parser.add_argument('--root_path', type=str, default='', help='root path to dataset')
     parser.add_argument('--train_files', type=str, default='Datasets/train_folds.csv', help='csv file for training')
     parser.add_argument('--num_folds', type=int, default=5, help='number of folds for cross-validation based on csv file')
@@ -179,6 +166,7 @@ def set_loader(opt, contrast_trans=True, fold=None):
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     
     if contrast_trans:
+        #Augmentations for contrastive learning based on: https://github.com/HobbitLong/SupContrast
         train_transform = TwoCropTransform(transforms.Compose([
             transforms.RandomResizedCrop(size=opt.size, scale=(0.2, 1.)),
             transforms.RandomHorizontalFlip(),
@@ -197,7 +185,7 @@ def set_loader(opt, contrast_trans=True, fold=None):
             normalize,
         ])
     
-    # # Criando dataset com os folds
+    #Create datasets with csv files and folds for training and validation
     train_dataset = CustomDatasetFromCSV(
         path_root=opt.root_path,
         tf_image=train_transform,
@@ -215,7 +203,7 @@ def set_loader(opt, contrast_trans=True, fold=None):
     )
 
     
-    # Criando DataLoaders
+    #Create dataloaders
     train_loader = DataLoader(train_dataset, 
                               batch_size=opt.batch_size, 
                               shuffle=True, 
@@ -422,7 +410,6 @@ def valid(train_loader, valid_loader, model, criterion, epoch, opt, logger):
                 av_acc_top_5.update(test_contrastive_acc_knn(
                     train_embeds.cuda(), embeds[:, 0].cuda(),
                     train_labels.cuda(), labels.cuda(), 5).item(), bsz)
-        
 
             # compute losses (note there's no class balancing sampler for test)
             # loss is averaged across GPU-specific batches if using multiple GPUs, as in SupCon
@@ -470,171 +457,13 @@ def valid(train_loader, valid_loader, model, criterion, epoch, opt, logger):
 
     return av_losses.avg, av_acc_top_1.avg, av_acc_top_5.avg
 
+
 #If I can test the model on the test set
 # def test(model, criterion, opt, fold):
 #     train_loader, valid_loader = set_loader(opt, contrast_trans=True, fold=fold)
 #     valid(train_loader, valid_loader, model, criterion, 0, opt, logger=None)
 #     #valid(train_loader, test_loader, model, criterion, 0, opt, logger=None)
 
-
-# def main(opt):
-
-#     for fold in range(opt.num_folds):
-#         print(f"\n[INFO] Training model on fold {fold}...")
-
-#         train_loader, valid_loader = None, None
-
-#         # build data loader for each fold
-#         train_loader, valid_loader = set_loader(opt, contrast_trans=True, fold=fold)
-        
-#         print(f"Size from train_loader: {len(train_loader)} batches")
-#         print(f"Size from val_loader: {len(valid_loader)} batches")
-
-#         # build model
-#         model, criterion = set_model(opt)
-        
-#         # build optimizer
-#         optimizer = set_optimizer(opt, model)
-        
-#         # Tensorboard, only for first process if multiple
-#         if "device" not in opt or opt.device == 0:
-#             logger = SummaryWriter(log_dir=os.path.join(opt.tb_folder, f"fold_{fold}"))
-        
-#         # training routine
-#         for epoch in range(1, opt.epochs + 1):
-#             adjust_learning_rate(opt, optimizer, epoch)
-            
-#             time1 = time.time()
-#             train(train_loader, model, criterion, optimizer, epoch, opt, logger)
-#             time2 = time.time()
-            
-#             print('epoch {}, fold {}, total time {:.2f}'.format(epoch, fold, time2 - time1))
-            
-#             if epoch % opt.save_freq == 0:
-#                 save_file = os.path.join(
-#                     opt.save_folder, f'ckpt_fold_{fold}_epoch_{epoch}.pth')
-#                 save_model(model, optimizer, opt, epoch, save_file)
-
-#         #Validation after ends of epoch to another k-folds
-#         valid(train_loader, valid_loader, model, criterion, epoch, opt, logger),
-        
-#         # Save the last model for this fold
-#         save_file = os.path.join(opt.save_folder, f'last_fold_{fold}.pth')
-#         save_model(model, optimizer, opt, opt.epochs, save_file)
-        
-    # Print test statistics for this fold
-    # valid(train_loader, valid_loader, model, criterion, epoch, opt, logger)
-
-# def main(opt):
-#     accs_train = []  # Lista para armazenar a acurácia média de cada fold
-#     losses_train = []
-#     std_devs_acc_train = []    # Lista para armazenar o desvio padrão de cada fold
-#     std_devs_loss_train = []
-    
-#     accs_val_ = []
-#     losses_val = []
-#     std_devs_val = []
-#     std_devs_loss_val = []
-#     accs5_val = []
-#     std_devs5_val = []
-    
-#     losses = []      # Lista para armazenar a loss média de cada fold
-#     std_devs_loss = []  # Lista para armazenar o desvio padrão da loss de cada fold
-#     top5_accuracies = []  # Lista para armazenar a Top-5 Accuracy média de cada fold
-
-#     for fold in range(opt.num_folds):
-#         print(f"\n[INFO] Training model on fold {fold}...")
-
-#         # Construir os dataloaders para o fold atual
-#         train_loader, valid_loader = set_loader(opt, contrast_trans=True, fold=fold)
-        
-#         print(f"Size from train_loader: {len(train_loader)} batches")
-#         print(f"Size from val_loader: {len(valid_loader)} batches")
-
-#         # Criar modelo e loss function
-#         model, criterion = set_model(opt)
-
-#         # Criar otimizador
-#         optimizer = set_optimizer(opt, model)
-
-#         # Tensorboard logger (apenas no processo principal)
-#         logger = None
-#         if "device" not in opt or opt.device == 0:
-#             logger = SummaryWriter(log_dir=os.path.join(opt.tb_folder, f"fold_{fold}"))
-
-#         # Variáveis para armazenar as métricas de cada fold
-#         fold_acc_train = AverageMeter()  # Média da acurácia
-#         fold_losses_train = AverageMeter()  # Média da loss
-#         fold_losses_val = []  # Lista para armazenar as acurácias de cada época
-#         fold_acc_val = []  # Lista para armazenar as losses de cada época
-#         fold_acc5_val = []
-
-#         # Loop de treinamento
-#         for epoch in range(1, opt.epochs + 1):
-#             adjust_learning_rate(opt, optimizer, epoch)
-
-#             time1 = time.time()
-#             av_train_loss, av_train_acc = train(train_loader, model, criterion, optimizer, epoch, opt, logger)
-#             time2 = time.time()
-
-#             print(f'Epoch {epoch}, Fold {fold}, Total Time: {time2 - time1:.2f}s')
-
-#             # Atualizar a média da acurácia, da loss e da top-5 accuracy
-#             av_val_loss, av_val_acc, av_val_acc5 = valid(valid_loader, model, criterion, epoch, opt, logger) 
-
-#             #Compute the metrics for the epoch
-#             fold_losses_train.update(av_train_loss, epoch)
-#             fold_acc_train.update(av_train_acc, epoch)
-#             fold_losses_val.append(av_val_loss, epoch)
-#             fold_acc_val.append(av_val_acc, epoch)
-#             fold_acc5_val.append(av_val_acc5, epoch)
-
-#             # Salvar checkpoints periódicos
-#             if epoch % opt.save_freq == 0:
-#                 save_file = os.path.join(opt.save_folder, f'ckpt_fold_{fold}_epoch_{epoch}.pth')
-#                 save_model(model, optimizer, opt, epoch, save_file)
-
-    
-#         accs_train.append(fold_losses_train.avg)
-#         losses_train.append(fold_acc_train.avg)
-
-
-        
-    
-#         losses.append(mean_loss)
-#         top5_accuracies.append(mean_top5_accuracy)
-
-#         # Calcular desvio padrão da acurácia
-#         accuracy_values = fold_accuracies.sum / fold_accuracies.count
-#         variance_accuracy = np.var(accuracy_values)
-#         std_dev_accuracy = np.sqrt(variance_accuracy)
-#         std_devs.append(std_dev_accuracy)
-
-#         # Calcular desvio padrão da loss
-#         loss_values = fold_losses.sum / fold_losses.count
-#         variance_loss = np.var(loss_values)
-#         std_dev_loss = np.sqrt(variance_loss)
-#         std_devs_loss.append(std_dev_loss)
-
-#         # Salvar o último modelo deste fold
-#         save_file = os.path.join(opt.save_folder, f'last_fold_{fold}.pth')
-#         save_model(model, optimizer, opt, opt.epochs, save_file)
-
-#     # Após o término de todos os folds, calcular a acurácia e loss médias e o desvio padrão entre todos os folds
-#     mean_accuracy_all_folds = np.mean(accuracies)
-#     std_dev_accuracy_all_folds = np.std(accuracies)
-#     mean_loss_all_folds = np.mean(losses)
-#     std_dev_loss_all_folds = np.std(losses)
-#     mean_top5_accuracy_all_folds = np.mean(top5_accuracies)
-#     std_dev_top5_accuracy_all_folds = np.std(top5_accuracies)
-    
-#     print(f"\n[INFO] Mean Accuracy across folds: {mean_accuracy_all_folds:.4f}")
-#     print(f"[INFO] Standard Deviation of Accuracy across folds: {std_dev_accuracy_all_folds:.4f}")
-#     print(f"[INFO] Mean Loss across folds: {mean_loss_all_folds:.4f}")
-#     print(f"[INFO] Standard Deviation of Loss across folds: {std_dev_loss_all_folds:.4f}")
-#     print(f"[INFO] Mean Top-5 Accuracy across folds: {mean_top5_accuracy_all_folds:.4f}")
-#     print(f"[INFO] Standard Deviation of Top-5 Accuracy across folds: {std_dev_top5_accuracy_all_folds:.4f}")
-    
 
 def main(opt):
     accs_train = [] 
@@ -687,9 +516,6 @@ def main(opt):
             fold_losses_train.update(av_train_loss)
             fold_acc_train.update(av_train_acc)
 
-            # print(f"Fold train loss: {fold_losses_train}")
-            # print(f"Fold train acc: {fold_acc_train}")
-
             print(f'Epoch {epoch}, Fold {fold}, Total Time: {time2 - time1:.2f}s')
 
             av_val_loss, av_val_acc, av_val_acc5 = valid(train_loader, valid_loader, model, criterion, epoch, opt, logger) 
@@ -740,7 +566,7 @@ def main(opt):
     print(f"[INFO] Standard Deviation of Training Accuracy across folds: {std_dev_accuracy_train:.4f}")
 
     print(f"[INFO] Training Mean Loss across folds: {mean_loss_train:.4f}")
-    print(f"[INFO] Standard Deviation of Training Loss across folds: {std_dev_loss_train:.4f}")
+    print(f"[INFO] Standard Deviation of Training Loss across folds: {std_dev_loss_train:.4f}\n")
 
     print(f"[INFO] Validation Mean Accuracy across folds: {mean_accuracy_val:.4f}")
     print(f"[INFO] Standard Deviation of Validation Accuracy across folds: {std_dev_accuracy_val:.4f}")
@@ -750,82 +576,6 @@ def main(opt):
     
     print(f"[INFO] Validation Mean Top-5 Accuracy across folds: {mean_accuracy5_val:.4f}")
     print(f"[INFO] Standard Deviation of Validation Top-5 Accuracy across folds: {std_dev_accuracy5_val:.4f}")
-
-
-# def main(opt):
-
-#     accuracies = []
-#     std_devs = []
-#     losses = []
-#     std_devs_loss = []
-#     accuracies_top5 = []
-#     std_devs_top5 = []
-
-#     for fold in range(opt.num_folds):
-#         print(f"\n[INFO] Training model on fold {fold}...")
-
-#         # Construir os dataloaders para o fold atual
-#         train_loader, valid_loader = set_loader(opt, contrast_trans=True, fold=fold)
-        
-#         print(f"Size from train_loader: {len(train_loader)} batches")
-#         print(f"Size from val_loader: {len(valid_loader)} batches")
-
-#         # Criar modelo e loss function
-#         model, criterion = set_model(opt)
-
-#         # Criar otimizador
-#         optimizer = set_optimizer(opt, model)
-
-#         # Tensorboard logger (apenas no processo principal)
-#         logger = None
-#         if "device" not in opt or opt.device == 0:
-#             logger = SummaryWriter(log_dir=os.path.join(opt.tb_folder, f"fold_{fold}"))
-
-#         fold_accuracies = AverageMeter()
-
-#         # Loop de treinamento
-#         for epoch in range(1, opt.epochs + 1):
-#             adjust_learning_rate(opt, optimizer, epoch)
-
-#             time1 = time.time()
-#             train_loss, train_acc1 = train(train_loader, model, criterion, optimizer, epoch, opt, logger)
-#             time2 = time.time()
-
-#             print(f'Epoch {epoch}, Fold {fold}, Total Time: {time2 - time1:.2f}s')
-
-#             # Validar após cada época
-#             av_loss, acc1, acc5 = valid(train_loader, valid_loader, model, criterion, epoch, opt, logger)  # <--- Chamado corretamente
-#             fold_accuracies.update(acc1, epoch)
-
-#             # Salvar checkpoints periódicos
-#             if epoch % opt.save_freq == 0:
-#                 save_file = os.path.join(opt.save_folder, f'ckpt_fold_{fold}_epoch_{epoch}.pth')
-#                 save_model(model, optimizer, opt, epoch, save_file)
-
-#         # Salvar o último modelo deste fold
-#         save_file = os.path.join(opt.save_folder, f'last_fold_{fold}.pth')
-#         save_model(model, optimizer, opt, opt.epochs, save_file)
-
-#         # Após o término do fold, armazenamos a média e o desvio padrão
-#         mean_accuracy = fold_accuracies.avg
-#         accuracies.append(mean_accuracy)
-
-#         # Calcular desvio padrão manualmente
-#         accuracy_values = fold_accuracies.sum / fold_accuracies.count
-#         variance = np.var(accuracy_values)
-#         std_dev_accuracy = np.sqrt(variance)
-#         std_devs.append(std_dev_accuracy)
-
-
-#      #If you can test your model on the test set after training
-#      #test(model, criterion, opt, fold)
-#      # Após o término de todos os folds, calcular a acurácia média e o desvio padrão entre todos os folds
-#     mean_accuracy_all_folds = np.mean(accuracies)
-#     std_dev_accuracy_all_folds = np.std(accuracies)
-    
-#     print(f"\n[INFO] Mean Accuracy across folds: {mean_accuracy_all_folds:.4f}")
-#     print(f"[INFO] Standard Deviation of Accuracy across folds: {std_dev_accuracy_all_folds:.4f}")
-    
 
 
 def launch_parallel(rank, world_size):
