@@ -46,7 +46,7 @@ def parse_option():
     # optimization
     parser.add_argument('--learning_rate', type=float, default=0.01,
                         help='learning rate')
-    parser.add_argument('--lr_decay_epochs', type=str, default='30, 50, 70',
+    parser.add_argument('--lr_decay_epochs', type=str, default='10, 20, 30, 50',
                         help='where to decay lr, can be a list')
     parser.add_argument('--lr_decay_rate', type=float, default=0.1,
                         help='decay rate for learning rate')
@@ -97,8 +97,9 @@ def parse_option():
     
     #Experimental Dataset Settings
     parser.add_argument('--root_path', type=str, default='', help='root path to dataset')
-    parser.add_argument('--train_files', type=str, default='Datasets/train_folds.csv', help='csv file for training')
-    parser.add_argument('--num_folds', type=int, default=5, help='number of folds for cross-validation based on csv file')
+    parser.add_argument('--train_files', type=str, default='Datasets/train_new_subfold.csv', help='csv file for training')
+    parser.add_argument('--num_folds', type=int, default=4, help='number of folds for cross-validation based on csv file')
+
     # parser.add_argument('--val_files', type=str, default='Datasets/KFolds/SKF_VAL_Fold_1.csv', help='csv file for validation')
 
     opt = parser.parse_args()
