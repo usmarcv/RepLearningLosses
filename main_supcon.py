@@ -32,28 +32,18 @@ def parse_option():
 
     parser = argparse.ArgumentParser('Arguments for training...')
 
-    parser.add_argument('--print_freq', type=int, default=10,
-                        help='print frequency')
-    parser.add_argument('--save_freq', type=int, default=50,
-                        help='save frequency')
-    parser.add_argument('--batch_size', type=int, default=256,
-                        help='batch_size')
-    parser.add_argument('--num_workers', type=int, default=16,
-                        help='num of workers to use')
-    parser.add_argument('--epochs', type=int, default=10,
-                        help='number of training epochs')
+    parser.add_argument('--print_freq', type=int, default=10, help='print frequency')
+    parser.add_argument('--save_freq', type=int, default=25, help='save frequency')
+    parser.add_argument('--batch_size', type=int, default=32, help='batch_size')
+    parser.add_argument('--num_workers', type=int, default=16, help='num of workers to use')
+    parser.add_argument('--epochs', type=int, default=50, help='number of training epochs')
 
     # optimization
-    parser.add_argument('--learning_rate', type=float, default=0.01,
-                        help='learning rate')
-    parser.add_argument('--lr_decay_epochs', type=str, default='10, 20, 30, 50',
-                        help='where to decay lr, can be a list')
-    parser.add_argument('--lr_decay_rate', type=float, default=0.1,
-                        help='decay rate for learning rate')
-    parser.add_argument('--weight_decay', type=float, default=1e-4,
-                        help='weight decay')
-    parser.add_argument('--momentum', type=float, default=0.9,
-                        help='momentum')
+    parser.add_argument('--learning_rate', type=float, default=0.0001, help='learning rate')
+    parser.add_argument('--lr_decay_epochs', type=str, default='20, 30, 40', help='where to decay lr, can be a list')
+    parser.add_argument('--lr_decay_rate', type=float, default=0.1, help='decay rate for learning rate')
+    parser.add_argument('--weight_decay', type=float, default=1e-4, help='weight decay')
+    parser.add_argument('--momentum', type=float, default=0.9, help='momentum')
 
     # model dataset
     parser.add_argument('--model', type=str, default='resnet50', choices=['resnet50', 
@@ -65,8 +55,8 @@ def parse_option():
     parser.add_argument('--dataset', type=str, default='cifar10',
                         choices=['cifar10', 'cifar100', 'imagenet100', 'imagenet', 'cifar2', 'aircraft', 'cars', 'path'], 
                         help='Dataset')
-    parser.add_argument('--valid_split', type=float, default=0,
-                        help="proportion of train data to use for validation set")
+    # parser.add_argument('--valid_split', type=float, default=0,
+    #                     help="proportion of train data to use for validation set")
     parser.add_argument('--mean', type=str,
                         help='mean of dataset in path in form of str tuple')
     parser.add_argument('--std', type=str,
@@ -105,11 +95,11 @@ def parse_option():
     opt = parser.parse_args()
 
     # check if dataset is path that passed required arguments
-    if opt.dataset == 'path':
-        #assert opt.data_folder is not None
-        assert opt.mean is not None
-        assert opt.std is not None
-        #assert opt.n_cls is not None
+    # if opt.dataset == 'path':
+    #     #assert opt.data_folder is not None
+    #     assert opt.mean is not None
+    #     assert opt.std is not None
+    #     #assert opt.n_cls is not None
 
     # set the path according to the environment
     if opt.data_folder is None:
@@ -467,6 +457,7 @@ def valid(train_loader, valid_loader, model, criterion, epoch, opt, logger):
 
 
 def main(opt):
+
     accs_train = [] 
     losses_train = []
     std_devs_acc_train = []   
@@ -508,7 +499,7 @@ def main(opt):
             adjust_learning_rate(opt, optimizer, epoch)
 
             time1 = time.time()
-            av_train_acc, av_train_loss,  = train(train_loader, model, criterion, optimizer, epoch, opt, logger)
+            av_train_acc, av_train_loss , = train(train_loader, model, criterion, optimizer, epoch, opt, logger)
             time2 = time.time()
 
             print(f"\tloss train: {av_train_loss}")
