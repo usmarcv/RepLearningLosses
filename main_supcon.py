@@ -52,19 +52,15 @@ def parse_option():
                                                                           'dino_vit_base_p_16', 'dino_vit_base_p_8'], 
                         help='Choose your backbone')
     #parser.add_argument('--n_cls', type=int, default=None, help='Number of classes for your dataset')
-    parser.add_argument('--dataset', type=str, default='cifar10',
+    parser.add_argument('--dataset', type=str, default='cifar10', 
                         choices=['cifar10', 'cifar100', 'imagenet100', 'imagenet', 'cifar2', 'aircraft', 'cars', 'path'], 
                         help='Dataset')
     # parser.add_argument('--valid_split', type=float, default=0,
     #                     help="proportion of train data to use for validation set")
-    parser.add_argument('--mean', type=str,
-                        help='mean of dataset in path in form of str tuple')
-    parser.add_argument('--std', type=str,
-                        help='std of dataset in path in form of str tuple')
-    parser.add_argument('--data_folder', type=str,
-                        default=None, help='path to custom dataset')
-    parser.add_argument('--size', type=int, default=32,
-                        help='size of images after resizing')
+    parser.add_argument('--mean', type=str, help='mean of dataset in path in form of str tuple')
+    parser.add_argument('--std', type=str, help='std of dataset in path in form of str tuple')
+    parser.add_argument('--data_folder', type=str, default=None, help='path to custom dataset')
+    parser.add_argument('--size', type=int, default=32, help='size of images after resizing')
 
     # Contrastive method
     parser.add_argument('--method', type=str, default='SINCERE',
@@ -499,7 +495,7 @@ def main(opt):
             adjust_learning_rate(opt, optimizer, epoch)
 
             time1 = time.time()
-            av_train_acc, av_train_loss , = train(train_loader, model, criterion, optimizer, epoch, opt, logger)
+            av_train_acc, av_train_loss = train(train_loader, model, criterion, optimizer, epoch, opt, logger)
             time2 = time.time()
 
             print(f"\tloss train: {av_train_loss}")
