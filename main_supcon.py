@@ -55,8 +55,6 @@ def parse_option():
     parser.add_argument('--dataset', type=str, default='cifar10', 
                         choices=['cifar10', 'cifar100', 'imagenet100', 'imagenet', 'cifar2', 'aircraft', 'cars', 'path'], 
                         help='Dataset')
-    # parser.add_argument('--valid_split', type=float, default=0,
-    #                     help="proportion of train data to use for validation set")
     parser.add_argument('--mean', type=str, help='mean of dataset in path in form of str tuple')
     parser.add_argument('--std', type=str, help='std of dataset in path in form of str tuple')
     parser.add_argument('--data_folder', type=str, default=None, help='path to custom dataset')
@@ -74,8 +72,6 @@ def parse_option():
     # other setting
     parser.add_argument('--cosine', action='store_true',
                         help='using cosine annealing')
-    parser.add_argument('--syncBN', action='store_true',
-                        help='using synchronized batch normalization')
     parser.add_argument('--warm', action='store_true',
                         help='warm-up for large batch training')
     parser.add_argument('--trial', type=str, default='0',
@@ -97,8 +93,8 @@ def parse_option():
     if opt.data_folder is None:
         opt.data_folder = './datasets/'
 
-    opt.model_path = './save/SupCon/{}_models'.format(opt.dataset)
-    opt.tb_path = './save/SupCon/{}_tensorboard'.format(opt.dataset)
+    opt.model_path = './save/{}/{}_models'.format(opt.method, opt.dataset)
+    opt.tb_path = './save/{}/{}_tensorboard'.format(opt.method, opt.dataset)
 
     iterations = opt.lr_decay_epochs.split(',')
     opt.lr_decay_epochs = list([])
@@ -558,7 +554,8 @@ def main(opt):
         #[TODO] Talvez precisamos voltar aqui para validar melhor essa parte da loss
         # use valid_loader if present
         # if epoch % 5 == 0 and valid_loader is not None:
-        valid(train_loader, valid_loader, model, criterion, epoch, opt, logger) 
+        if valid_loader is not None:
+            valid(train_loader, valid_loader, model, criterion, epoch, opt, logger) 
         print('epoch {}, total time {:.2f}'.format(epoch, time2 - time1))
 
         # checkpoint
