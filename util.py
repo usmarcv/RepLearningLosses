@@ -157,18 +157,27 @@ class CustomDatasetFromCSV(Dataset):
     """    
         
     def __init__(self, path_root, tf_image=None, csv_name=None, val_fold=None, train=True):
+        """_summary_
+
+        Args:
+            path_root (_type_): _description_
+            tf_image (_type_, optional): _description_. Defaults to None.
+            csv_name (_type_, optional): _description_. Defaults to None.
+            val_fold (_type_, optional): _description_. Defaults to None.
+            train (bool, optional): _description_. Defaults to True.
+        """
+
         self.data = pd.read_csv(csv_name)
-        
+        self.tf_image = tf_image
+        self.root = path_root
+        self.cl_name = {c: i for i, c in enumerate(np.unique(self.data["label"]))}
         if val_fold is not None:
             if train:
                 self.data = self.data[self.data["fold"] != val_fold]  #Use all folds except the validation fold
             else:
                 self.data = self.data[self.data["fold"] == val_fold]  #Use only the validation fold
-        
-        self.tf_image = tf_image
-        self.root = path_root
-        self.cl_name = {c: i for i, c in enumerate(np.unique(self.data["label"]))}
     
+
     def __len__(self):
         return len(self.data)
     
