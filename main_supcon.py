@@ -13,7 +13,7 @@ from torch.utils.tensorboard import SummaryWriter
 #Metrics
 from contrast_acc import contrastive_acc, test_contrastive_acc, test_contrastive_acc_knn
 #Utils
-from util import AverageMeter, adjust_learning_rate, warmup_learning_rate, set_optimizer, save_model, TwoCropTransform, CustomDatasetFromCSV
+from util import AverageMeter, adjust_learning_rate, warmup_learning_rate, set_optimizer, save_model, TwoCropTransform, CustomDatasetFromCSV, ContrastiveSequenceBucketCollator
 #Networks
 from networks.pretrained_models import load_pretrained_model
 #Losses
@@ -21,6 +21,9 @@ from losses import SupConLoss, MultiviewSINCERELoss, MultiviewEpsSupInfoNCELoss,
 #Dataset
 from torch.utils.data import DataLoader
 from torchvision import transforms
+
+
+torch.backends.cudnn.benchmark = True
 
 
 __all_models = ['resnet50', 
@@ -32,7 +35,7 @@ def parse_option():
 
     parser = argparse.ArgumentParser('Arguments for training...')
 
-    parser.add_argument('--print_freq', type=int, default=10, help='print frequency')
+    parser.add_argument('--print_freq', type=int, default=50, help='print frequency')
     parser.add_argument('--save_freq', type=int, default=25, help='save frequency')
     parser.add_argument('--batch_size', type=int, default=32, help='batch_size')
     parser.add_argument('--num_workers', type=int, default=16, help='num of workers to use')
@@ -180,20 +183,28 @@ def set_dataset(opt, contrast_trans=True, flag:str=None, fold:int=None):
             train=False
         )
 
+        # contrastive_collator = ContrastiveSequenceBucketCollator(
+        #     choose_length=torch.max,  # Estratégia de truncamento
+        #     sequence_index=0,  # Índice da sequência (imagem)
+        #     length_index=1,  # Índice do comprimento
+        #     label_index=2  # Índice do rótulo
+        # )
+
         train_loader = DataLoader(train_dataset, 
                               batch_size=opt.batch_size, 
                               shuffle=True, 
                               num_workers=opt.num_workers,
-                              pin_memory=True)
-    
+                              pin_memory=True,
+                              prefetch_factor=2)
   
         valid_loader = DataLoader(val_dataset, 
                                 batch_size=opt.batch_size, 
                                 shuffle=False, 
                                 num_workers=opt.num_workers,
-                                pin_memory=True)
+                                pin_memory=True,
+                                prefetch_factor=2)
         
-        print(' [INFO] Training with cross-validation mode...')
+        print('[INFO] Training with cross-validation mode...')
         
         return train_loader, valid_loader
 
@@ -215,16 +226,18 @@ def set_dataset(opt, contrast_trans=True, flag:str=None, fold:int=None):
                               batch_size=opt.batch_size, 
                               shuffle=True, 
                               num_workers=opt.num_workers,
-                              pin_memory=True)
+                              pin_memory=True,
+                              drop_last=True)
     
   
         valid_loader = DataLoader(val_dataset, 
                                 batch_size=opt.batch_size, 
                                 shuffle=False, 
                                 num_workers=opt.num_workers,
-                                pin_memory=True)
+                                pin_memory=True,
+                                drop_last=True)
         
-        print(' [INFO] Training with holdout mode...')
+        print('[INFO] Training with holdout mode...')
 
         return train_loader, valid_loader
 
@@ -242,7 +255,7 @@ def set_dataset(opt, contrast_trans=True, flag:str=None, fold:int=None):
                               num_workers=opt.num_workers,
                               pin_memory=True)
         
-        print(' [INFO] Training with contrastive mode...')
+        print('[INFO] Training with contrastive mode...')
         
         return train_loader, None
 
@@ -264,13 +277,13 @@ def set_loader(opt:str, fold:int=None):
 
     if opt.train_mode == 'cross-validation':
         train_loader, valid_loader = set_dataset(opt, contrast_trans=True, fold=fold)
-        print(' [INFO] Training with cross-validation mode...')
+        print('[INFO] Training with cross-validation mode...')
     elif opt.train_mode == 'holdout':
         train_loader, valid_loader = set_dataset(opt, contrast_trans=True, fold=None)
-        print(' [INFO] Training with holdout mode...')
+        print('[INFO] Training with holdout mode...')
     elif opt.train_mode == 'contrastive-mode':
         train_loader, valid_loader = set_dataset(opt, contrast_trans=True, fold=None)
-        print(' [INFO] Training with contrastive mode...')
+        print('[INFO] Training with contrastive mode...')
     else:
         raise ValueError('[INFO] Flag not supported: {}'.format(opt.train_mode))
     
@@ -306,12 +319,15 @@ def set_model(opt):
                          format(opt.method))
 
     if torch.cuda.is_available():
-        if "device" not in opt:
-            model = model.cuda()
-        else:
-            model = model.to(opt.device)
+        # if "device" not in opt:
+        #     model = model.cuda()
+        # else:
+        #     model = model.to(opt.device)
         if torch.cuda.device_count() > 1:
-            model.encoder = torch.nn.parallel.DistributedDataParallel(model.encoder)
+            # model.encoder = torch.nn.parallel.DistributedDataParallel(model.encoder)
+            model.encoder = torch.nn.DataParallel(model.encoder)
+        model = model.cuda()
+        criterion = criterion.cuda()
         cudnn.benchmark = True
 
     return model, criterion
@@ -486,15 +502,15 @@ def valid(train_loader, valid_loader, model, criterion, epoch, opt, logger):
             av_batch_time.update(time.time() - end)
             end = time.time()
 
-            # print info
-            if (idx + 1) % opt.print_freq == 0:
-                print('[Validation] Epoch: [{0}][{1}/{2}]\t'
-                      'BT {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                      'DT {data_time.val:.3f} ({data_time.avg:.3f})\t'
-                      'Loss {loss.val:.3f} ({loss.avg:.3f})'.format(
-                        epoch, idx + 1, len(train_loader), batch_time=av_batch_time,
-                        data_time=av_data_time, loss=av_losses))
-                sys.stdout.flush()
+            # # print info
+            # if idx % opt.print_freq == 0:
+            #     print('[Validation] Epoch: [{0}][{1}/{2}]\t'
+            #           'BT {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+            #           'DT {data_time.val:.3f} ({data_time.avg:.3f})\t'
+            #           'Loss {loss.val:.3f} ({loss.avg:.3f})'.format(
+            #             epoch, idx + 1, len(train_loader), batch_time=av_batch_time,
+            #             data_time=av_data_time, loss=av_losses))
+            #     sys.stdout.flush()
 
     if "device" not in opt or opt.device == 0:
         # tensorboard logger
@@ -503,9 +519,9 @@ def valid(train_loader, valid_loader, model, criterion, epoch, opt, logger):
         logger.add_scalar(f"{log_folder}Valid Top 1 Accuracy", av_acc_top_1.avg, epoch)
         logger.add_scalar(f"{log_folder}Valid Top 5 Accuracy", av_acc_top_5.avg, epoch)
         # print output
-        print(f"Valid/test {str(opt.method)} Loss: {av_losses.avg}")
-        print(f"Valid/test Top 1 Accuracy: {av_acc_top_1.avg}")
-        print(f"Valid/test Top 5 Accuracy: {av_acc_top_5.avg}")
+        print(f"\tValid/test {str(opt.method)} Loss: {av_losses.avg}")
+        print(f"\tValid/test Top 1 Accuracy: {av_acc_top_1.avg}")
+        print(f"\tValid/test Top 5 Accuracy: {av_acc_top_5.avg}")
         # save caches
         torch.save(train_embeds, os.path.join(opt.save_folder, "train_embeds.pth"))
         torch.save(train_labels, os.path.join(opt.save_folder, "train_labels.pth"))
@@ -524,7 +540,7 @@ def valid(train_loader, valid_loader, model, criterion, epoch, opt, logger):
 
 #CONFIGURAR main para multiplas opcoes de train mode
 
-def main(opt):
+def train_holdout(opt):
     # build data loader
     train_loader, valid_loader = set_dataset(opt, contrast_trans=True, flag=opt.train_mode, fold=None)
 
@@ -572,118 +588,131 @@ def main(opt):
     # print test statistics
     # test(model, opt)
 
-# def main(opt):
+def train_folds(opt):
 
-#     accs_train = [] 
-#     losses_train = []
-#     std_devs_acc_train = []   
-#     std_devs_loss_train = []
+    accs_train = [] 
+    losses_train = []
+    std_devs_acc_train = []   
+    std_devs_loss_train = []
     
-#     accs_val_ = []
-#     losses_val = []
-#     std_devs_val = []
-#     std_devs_loss_val = []
-#     accs5_val = []
-#     std_devs5_val = []
+    accs_val_ = []
+    losses_val = []
+    std_devs_val = []
+    std_devs_loss_val = []
+    accs5_val = []
+    std_devs5_val = []
 
-#     for fold in range(opt.num_folds):
-#         print(f"\n[INFO] Training model on fold {fold}...")
+    for fold in range(opt.num_folds):
+        print(f"\n[INFO] Training model on fold {fold}...")
 
-#         train_loader, valid_loader = set_loader(opt)
+        train_loader, valid_loader = set_dataset(opt, contrast_trans=True, flag=opt.train_mode, fold=fold)
         
-#         print(f"Size from train_loader: {len(train_loader)} batches")
-#         print(f"Size from val_loader: {len(valid_loader)} batches")
+        print(f"Size from train_loader: {len(train_loader)} batches")
+        print(f"Size from val_loader: {len(valid_loader)} batches")
 
-#         model, criterion = set_model(opt)
+        model, criterion = set_model(opt)
 
-#         optimizer = set_optimizer(opt, model)
+        optimizer = set_optimizer(opt, model)
 
-#         #Tensorboard logger 
-#         logger = None
-#         if "device" not in opt or opt.device == 0:
-#             logger = SummaryWriter(log_dir=os.path.join(opt.tb_folder, f"fold_{fold}"))
+        #Tensorboard logger 
+        logger = None
+        if "device" not in opt or opt.device == 0:
+            logger = SummaryWriter(log_dir=os.path.join(opt.tb_folder, f"fold_{fold}"))
 
       
-#         fold_acc_train = AverageMeter()
-#         fold_losses_train = AverageMeter()  
-#         fold_losses_val = []  
-#         fold_acc_val = []  
-#         fold_acc5_val = []
+        fold_acc_train = AverageMeter()
+        fold_losses_train = AverageMeter()  
+        fold_losses_val = []  
+        fold_acc_val = []  
+        fold_acc5_val = []
 
-#         # Loop de treinamento
-#         for epoch in range(1, opt.epochs + 1):
-#             adjust_learning_rate(opt, optimizer, epoch)
+        # Loop de treinamento
+        for epoch in range(1, opt.epochs + 1):
+            adjust_learning_rate(opt, optimizer, epoch)
 
-#             time1 = time.time()
-#             av_train_acc, av_train_loss = train(train_loader, model, criterion, optimizer, epoch, opt, logger)
-#             time2 = time.time()
+            time1 = time.time()
+            av_train_acc, av_train_loss = train(train_loader, model, criterion, optimizer, epoch, opt, logger)
+            time2 = time.time()
 
-#             print(f"\tloss train: {av_train_loss}")
-#             print(f"\tacc train: {av_train_acc}")
+            print(f"\tloss train: {av_train_loss}")
+            print(f"\tacc train: {av_train_acc}")
 
-#             fold_losses_train.update(av_train_loss)
-#             fold_acc_train.update(av_train_acc)
+            fold_losses_train.update(av_train_loss)
+            fold_acc_train.update(av_train_acc)
 
-#             print(f'Epoch {epoch}, Fold {fold}, Total Time: {time2 - time1:.2f}s')
+            print(f'Epoch {epoch}, Fold {fold}, Total Time: {time2 - time1:.2f}s')
 
-#             av_val_loss, av_val_acc, av_val_acc5 = valid(train_loader, valid_loader, model, criterion, epoch, opt, logger) 
+            print("[Validation]...")
+            av_val_loss, av_val_acc, av_val_acc5 = valid(train_loader, valid_loader, model, criterion, epoch, opt, logger) 
 
-#             fold_losses_val.append(av_val_loss)
-#             fold_acc_val.append(av_val_acc)
-#             fold_acc5_val.append(av_val_acc5)
+            fold_losses_val.append(av_val_loss)
+            fold_acc_val.append(av_val_acc)
+            fold_acc5_val.append(av_val_acc5)
 
-#             # Salvar checkpoints periódicos
-#             if epoch % opt.save_freq == 0:
-#                 save_file = os.path.join(opt.save_folder, f'ckpt_fold_{fold}_epoch_{epoch}.pth')
-#                 save_model(model, optimizer, opt, epoch, save_file)
+            # Salvar checkpoints periódicos
+            if epoch % opt.save_freq == 0:
+                save_file = os.path.join(opt.save_folder, f'ckpt_fold_{fold}_epoch_{epoch}.pth')
+                save_model(model, optimizer, opt, epoch, save_file)
 
-#         accs_train.append(fold_acc_train.avg)
-#         losses_train.append(fold_losses_train.avg)
+        accs_train.append(fold_acc_train.avg)
+        losses_train.append(fold_losses_train.avg)
 
-#         # Calcular desvio padrão da acurácia e loss de treinamento
-#         std_devs_acc_train.append(np.std(fold_acc_train.history)) 
-#         std_devs_loss_train.append(np.std(fold_losses_train.history))  
+        # Calcular desvio padrão da acurácia e loss de treinamento
+        std_devs_acc_train.append(np.std(fold_acc_train.history)) 
+        std_devs_loss_train.append(np.std(fold_losses_train.history))  
 
-#         accs_val_.append(np.mean(fold_acc_val))  
-#         losses_val.append(np.mean(fold_losses_val))
-#         std_devs_val.append(np.std(fold_acc_val))  
-#         std_devs_loss_val.append(np.std(fold_losses_val))  
-#         accs5_val.append(np.mean(fold_acc5_val))  
-#         std_devs5_val.append(np.std(fold_acc5_val))  
+        accs_val_.append(np.mean(fold_acc_val))  
+        losses_val.append(np.mean(fold_losses_val))
+        std_devs_val.append(np.std(fold_acc_val))  
+        std_devs_loss_val.append(np.std(fold_losses_val))  
+        accs5_val.append(np.mean(fold_acc5_val))  
+        std_devs5_val.append(np.std(fold_acc5_val))  
 
-#         # Salvar o último modelo deste fold
-#         save_file = os.path.join(opt.save_folder, f'last_fold_{fold}.pth')
-#         save_model(model, optimizer, opt, opt.epochs, save_file)
+        # Salvar o último modelo deste fold
+        save_file = os.path.join(opt.save_folder, f'last_fold_{fold}.pth')
+        save_model(model, optimizer, opt, opt.epochs, save_file)
 
  
-#     mean_accuracy_train = np.mean(accs_train)
-#     std_dev_accuracy_train = np.std(accs_train)
-#     mean_loss_train = np.mean(losses_train)
-#     std_dev_loss_train = np.std(losses_train)
+    mean_accuracy_train = np.mean(accs_train)
+    std_dev_accuracy_train = np.std(accs_train)
+    mean_loss_train = np.mean(losses_train)
+    std_dev_loss_train = np.std(losses_train)
 
-#     mean_accuracy_val = np.mean(accs_val_)
-#     std_dev_accuracy_val = np.std(accs_val_)
-#     mean_loss_val = np.mean(losses_val)
-#     std_dev_loss_val = np.std(losses_val)
+    mean_accuracy_val = np.mean(accs_val_)
+    std_dev_accuracy_val = np.std(accs_val_)
+    mean_loss_val = np.mean(losses_val)
+    std_dev_loss_val = np.std(losses_val)
     
-#     mean_accuracy5_val = np.mean(accs5_val)
-#     std_dev_accuracy5_val = np.std(accs5_val)
+    mean_accuracy5_val = np.mean(accs5_val)
+    std_dev_accuracy5_val = np.std(accs5_val)
 
   
-#     print(f"\n[INFO] Training Mean Accuracy across folds: {mean_accuracy_train:.4f}")
-#     print(f"[INFO] Standard Deviation of Training Accuracy across folds: {std_dev_accuracy_train:.4f}")
+    print(f"\n[INFO] Training Mean Accuracy across folds: {mean_accuracy_train:.4f}")
+    print(f"[INFO] Standard Deviation of Training Accuracy across folds: {std_dev_accuracy_train:.4f}")
 
-#     print(f"[INFO] Training Mean Loss across folds: {mean_loss_train:.4f}")
-#     print(f"[INFO] Standard Deviation of Training Loss across folds: {std_dev_loss_train:.4f}\n")
+    print(f"[INFO] Training Mean Loss across folds: {mean_loss_train:.4f}")
+    print(f"[INFO] Standard Deviation of Training Loss across folds: {std_dev_loss_train:.4f}\n")
 
-#     print(f"[INFO] Validation Mean Accuracy across folds: {mean_accuracy_val:.4f}")
-#     print(f"[INFO] Standard Deviation of Validation Accuracy across folds: {std_dev_accuracy_val:.4f}")
+    print(f"[INFO] Validation Mean Accuracy across folds: {mean_accuracy_val:.4f}")
+    print(f"[INFO] Standard Deviation of Validation Accuracy across folds: {std_dev_accuracy_val:.4f}")
 
-#     print(f"[INFO] Validation Mean Loss across folds: {mean_loss_val:.4f}")
-#     print(f"[INFO] Standard Deviation of Validation Loss across folds: {std_dev_loss_val:.4f}")
+    print(f"[INFO] Validation Mean Loss across folds: {mean_loss_val:.4f}")
+    print(f"[INFO] Standard Deviation of Validation Loss across folds: {std_dev_loss_val:.4f}")
     
-#     print(f"[INFO] Validation Mean Top-5 Accuracy across folds: {mean_accuracy5_val:.4f}")
-#     print(f"[INFO] Standard Deviation of Validation Top-5 Accuracy across folds: {std_dev_accuracy5_val:.4f}")
+    print(f"[INFO] Validation Mean Top-5 Accuracy across folds: {mean_accuracy5_val:.4f}")
+    print(f"[INFO] Standard Deviation of Validation Top-5 Accuracy across folds: {std_dev_accuracy5_val:.4f}")
+
+
+def main(opt):
+    
+    if opt.train_mode == 'holdout':
+        train_holdout(opt)
+    elif opt.train_mode == 'cross-validation':
+        train_folds(opt)
+    # elif opt.train_mode == 'contrastive-mode':
+    #     train_holdout(opt)
+    else:
+        raise ValueError('[INFO] Flag for training mode not supported: {}'.format(opt.train_mode))
 
 
 def launch_parallel(rank, world_size):
