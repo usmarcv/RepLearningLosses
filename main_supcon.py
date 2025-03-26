@@ -38,7 +38,7 @@ def parse_option():
     parser.add_argument('--print_freq', type=int, default=50, help='print frequency')
     parser.add_argument('--save_freq', type=int, default=25, help='save frequency')
     parser.add_argument('--batch_size', type=int, default=32, help='batch_size')
-    parser.add_argument('--num_workers', type=int, default=16, help='num of workers to use')
+    parser.add_argument('--num_workers', type=int, default=8, help='num of workers to use')
     parser.add_argument('--epochs', type=int, default=50, help='number of training epochs')
 
     # optimization
@@ -227,7 +227,7 @@ def set_dataset(opt, contrast_trans=True, flag:str=None, fold:int=None):
                               shuffle=True, 
                               num_workers=opt.num_workers,
                               pin_memory=True,
-                              drop_last=True)
+                              drop_last=False)
     
   
         valid_loader = DataLoader(val_dataset, 
@@ -235,7 +235,7 @@ def set_dataset(opt, contrast_trans=True, flag:str=None, fold:int=None):
                                 shuffle=False, 
                                 num_workers=opt.num_workers,
                                 pin_memory=True,
-                                drop_last=True)
+                                drop_last=False)
         
         print('[INFO] Training with holdout mode...')
 
@@ -348,8 +348,8 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
     end = time.time()
 
     # #Change reshuffle split of data across GPUs
-    if "device" in opt:
-        train_loader.sampler.set_epoch(epoch)
+    # if "device" in opt:
+    #     train_loader.sampler.set_epoch(epoch)
     for idx, (image_aug_tuple, labels) in enumerate(train_loader):
         av_data_time.update(time.time() - end)
 
@@ -367,8 +367,8 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
         warmup_learning_rate(opt, epoch, idx, len(train_loader), optimizer)
 
         # forward
-        with torch.set_grad_enabled(True):
-            flat_embeds = model(images)
+        #with torch.set_grad_enabled(True):
+        flat_embeds = model(images)
         # reshape from (2B, D) to (B, 2, D)
         embeds = torch.cat([aug.unsqueeze(1) for aug in torch.split(flat_embeds, [bsz, bsz], dim=0)], dim=1)
         # compute losses
@@ -447,8 +447,8 @@ def valid(train_loader, valid_loader, model, criterion, epoch, opt, logger):
 
         end = time.time()
         # # # change reshuffle split of data across GPUs
-        if "device" in opt:
-            loader.sampler.set_epoch(epoch)
+        # if "device" in opt:
+        #     loader.sampler.set_epoch(epoch)
         for idx, (image_aug_tuple, labels) in enumerate(loader):
             av_data_time.update(time.time() - end)
 
