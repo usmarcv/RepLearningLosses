@@ -247,9 +247,9 @@ def set_dataset(opt, contrast_trans=True, flag:str=None, fold:int=None):
                                 pin_memory=True,
                                 drop_last=False)
         
-        print('\n[INFO] memory loading dataloader...')
-        get_free_memory()
-        print()
+        # print('\n[INFO] memory loading dataloader...')
+        # get_free_memory()
+        # print()
         
         print('[INFO] Training with holdout mode...')
 
@@ -302,9 +302,9 @@ def set_loader(opt:str, fold:int=None):
     else:
         raise ValueError('[INFO] Flag not supported: {}'.format(opt.train_mode))
     
-    print('\n[INFO] memory loading set_dataset()...')
-    get_free_memory()
-    print()
+    # print('\n[INFO] memory loading set_dataset()...')
+    # get_free_memory()
+    # print()
 
 
     return train_loader, valid_loader
@@ -321,10 +321,10 @@ def set_model(opt):
     if opt.model in __all_models:
         model = load_pretrained_model(opt.model)
 
-    print('\n[INFO] memory loading set pretrained model...')
-    get_free_memory()
-    print()
-    
+    # print('\n[INFO] memory loading set pretrained model...')
+    # get_free_memory()
+    # print()
+
     #Set criterion 
     if opt.method == 'SINCERE':
         # original implementation does not set base_temperature, but setting here to make
@@ -354,9 +354,9 @@ def set_model(opt):
         criterion = criterion.cuda()
         cudnn.benchmark = True
 
-    print('\n[INFO] memory loading set pretrained model and loss...')
-    get_free_memory()
-    print()
+    # print('\n[INFO] memory loading set pretrained model and loss...')
+    # get_free_memory()
+    # print()
 
     return model, criterion
 
@@ -382,9 +382,9 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
     # get_free_memory()
     # print()
 
-    print('\n[INFO] memory train one epoch...')
-    get_free_memory()
-    print()
+    # print('\n[INFO] memory train one epoch...')
+    # get_free_memory()
+    # print()
 
     for idx, (image_aug_tuple, labels) in enumerate(train_loader):
         av_data_time.update(time.time() - end)
@@ -399,10 +399,10 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
                 labels = labels.to(opt.device, non_blocking=True)
         bsz = labels.shape[0]
 
-        print('\n[INFO] idx: ', idx)
-        print('[INFO] batched images and labels...')
-        get_free_memory()
-        print()
+        # print('\n[INFO] idx: ', idx)
+        # print('[INFO] batched images and labels...')
+        # get_free_memory()
+        # print()
 
         # warm-up learning rate
         warmup_learning_rate(opt, epoch, idx, len(train_loader), optimizer)
@@ -419,10 +419,10 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
             # reshape from (2B, D) to (B, 2, D)
             feat1, feat2 = torch.split(flat_embeds, [bsz, bsz], dim=0)
             embeds = torch.cat([feat1.unsqueeze(1), feat2.unsqueeze(1)], dim=1)
-            print('\n[INFO] idx: ', idx)
-            print('[INFO] images and labels to MODEL...')
-            get_free_memory()
-            print()
+            # print('\n[INFO] idx: ', idx)
+            # print('[INFO] images and labels to MODEL...')
+            # get_free_memory()
+            # print()
             # compute losses
             # loss is averaged across GPU-specific batches if using multiple GPUs, as in SupCon
             # see MoCo v3 for full batch size parallelization with torch's all_gather
@@ -508,10 +508,10 @@ def valid(train_loader, valid_loader, model, criterion, epoch, opt, logger):
             
             images = torch.cat([image_aug_tuple[0], image_aug_tuple[1]], dim=0)
             if torch.cuda.is_available():
-                # if "device" not in opt:
-                #     images = images.cuda(non_blocking=True)
-                #     labels = labels.cuda(non_blocking=True)
-                # else:
+                if "device" not in opt:
+                    images = images.cuda(non_blocking=True)
+                    labels = labels.cuda(non_blocking=True)
+                else:
                     images = images.cuda(non_blocking=True)
                     labels = labels.cuda(non_blocking=True)
             bsz = labels.shape[0]
@@ -552,10 +552,6 @@ def valid(train_loader, valid_loader, model, criterion, epoch, opt, logger):
             
             # update averages
             av_losses.update(loss.item(), bsz)
-           # av_losses.update(loss.item(), bsz)
-           # scaler.scale(loss).backward()
-           # scaler.update()
-            # scaler.update()
 
             # measure elapsed time
             av_batch_time.update(time.time() - end)
