@@ -194,3 +194,4 @@ class CustomDatasetFromCSV(Dataset):
             X = self.tf_image(X)
                 
         return X, y
+    
