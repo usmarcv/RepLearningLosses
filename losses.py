@@ -99,65 +99,130 @@ class SupConLoss(nn.Module):
 
         return loss
 
-
 class SINCERELoss(nn.Module):
     def __init__(self, temperature=0.07) -> None:
         super().__init__()
         self.temperature = temperature
 
-    def forward(self, embeds: torch.Tensor, labels: torch.tensor):
+    def forward(self, embeds: torch.Tensor, labels: torch.Tensor):
         """Supervised InfoNCE REvisited loss with cosine distance
 
         Args:
             embeds (torch.Tensor): (B, D) embeddings of B images normalized over D dimension.
-            labels (torch.tensor): (B,) integer class labels.
+            labels (torch.Tensor): (B,) integer class labels.
 
         Returns:
             torch.Tensor: Scalar loss.
         """
 
-        device = (embeds.get_device()
-                  if embeds.is_cuda
-                  else torch.device('cpu'))
+        device = embeds.device
 
-        # calculate logits (activations) for each embeddings pair (B, B)
-        # using matrix multiply instead of cosine distance function for ~10x cost reduction
-        logits = embeds @ embeds.T
+        # Garantir que embeddings estejam em float16
+        embeds = embeds.to(dtype=torch.float16, device=device)
+        labels = labels.to(dtype=torch.int64, device=device)  # Labels devem ser inteiros
+
+        # Calcular logits (B, B)
+        logits = torch.matmul(embeds, embeds.T).to(dtype=torch.float16)
         logits /= self.temperature
-        # determine which logits are between embeds of the same label (B, B)
+
+        # Determinar pares de mesmo rótulo
         same_label = labels.unsqueeze(0) == labels.unsqueeze(1)
 
-        # masking with -inf to get zeros in the summation for the softmax denominator
-        denom_activations = torch.full_like(logits, float("-inf"))
+        # Criar máscara para o denominador
+        denom_activations = torch.full_like(logits, -65504.0, dtype=torch.float16)  # Evita erro com -inf
         denom_activations[~same_label] = logits[~same_label]
-        # get logsumexp of the logits between embeds of different labels for each row (B,)
-        base_denom_row = torch.logsumexp(denom_activations, dim=0)
-        # reshape to be (B, B) with row values equivalent, to be masked later
-        base_denom = base_denom_row.unsqueeze(1).repeat((1, len(base_denom_row)))
 
-        # get mask for numerator terms by removing comparisons between an image and itself (B, B)
-        in_numer = same_label
-        in_numer[torch.eye(in_numer.shape[0], dtype=bool)] = False
-        # delete same_label so don't need to copy for in_numer
-        del same_label
-        # count numerator terms for averaging (B,)
-        numer_count = in_numer.sum(dim=0)
-        # numerator activations with others zeroed (B, B)
-        numer_logits = torch.zeros_like(logits)
+        # Calcular logsumexp para o denominador
+        base_denom_row = torch.logsumexp(denom_activations, dim=0).to(dtype=torch.float16)
+        base_denom = base_denom_row.unsqueeze(1).repeat((1, base_denom_row.shape[0]))
+
+        # Criar máscara para o numerador, removendo comparações consigo mesmo
+        in_numer = same_label.clone()
+        in_numer.fill_diagonal_(False)  # Método seguro para evitar auto-comparação
+
+        # Contar elementos no numerador
+        numer_count = in_numer.sum(dim=0).to(dtype=torch.float16)
+
+        # Criar matriz de logits do numerador
+        numer_logits = torch.zeros_like(logits, dtype=torch.float16)
         numer_logits[in_numer] = logits[in_numer]
 
-        # construct denominator term for each numerator via logsumexp over a stack (B, B)
-        log_denom = torch.zeros_like(logits)
-        log_denom[in_numer] = torch.stack(
-            (numer_logits[in_numer], base_denom[in_numer]), dim=0).logsumexp(dim=0)
+        # Criar denominador logsumexp de forma segura
+        stacked = torch.stack([numer_logits[in_numer], base_denom[in_numer]], dim=0).to(dtype=torch.float16)
+        log_denom = torch.zeros_like(logits, dtype=torch.float16)
+        log_denom[in_numer] = torch.logsumexp(stacked, dim=0).to(dtype=torch.float16)
 
-        # cross entropy loss of each positive pair with the logsumexp of the negative classes (B, B)
-        # entries not in numerator set to 0
+        # Calcular entropia cruzada
         ce = -1 * (numer_logits - log_denom)
-        # take average over rows with entry count then average over batch
-        loss = torch.sum(ce / numer_count.to(device)) / ce.shape[0]
+
+        # Normalizar e calcular a perda
+        loss = torch.sum(ce / numer_count) / ce.shape[0]
 
         return loss
+
+
+# class SINCERELoss(nn.Module):
+#     def __init__(self, temperature=0.07) -> None:
+#         super().__init__()
+#         self.temperature = temperature
+
+#     def forward(self, embeds: torch.Tensor, labels: torch.tensor):
+#         """Supervised InfoNCE REvisited loss with cosine distance
+
+#         Args:
+#             embeds (torch.Tensor): (B, D) embeddings of B images normalized over D dimension.
+#             labels (torch.tensor): (B,) integer class labels.
+
+#         Returns:
+#             torch.Tensor: Scalar loss.
+#         """
+
+#         device = (embeds.get_device()
+#                   if embeds.is_cuda
+#                   else torch.device('cpu'))
+
+#         # calculate logits (activations) for each embeddings pair (B, B)
+#         # using matrix multiply instead of cosine distance function for ~10x cost reduction
+#         embeds = embeds.to(dtype=torch.float16, device=device)
+#         logits = embeds @ embeds.T
+#         logits = logits.to(dtype=torch.float16)
+#         # logits = embeds @ embeds.T
+#         # logits /= self.temperature
+#         # determine which logits are between embeds of the same label (B, B)
+#         same_label = labels.unsqueeze(0) == labels.unsqueeze(1)
+
+#         # masking with -inf to get zeros in the summation for the softmax denominator
+#         denom_activations = torch.full_like(logits, float("-inf"), dtype=torch.float16)
+#         denom_activations[~same_label] = logits[~same_label]
+#         # get logsumexp of the logits between embeds of different labels for each row (B,)
+#         base_denom_row = torch.logsumexp(denom_activations, dim=0)
+#         # reshape to be (B, B) with row values equivalent, to be masked later
+#         base_denom = base_denom_row.unsqueeze(1).repeat((1, len(base_denom_row)))
+
+#         # get mask for numerator terms by removing comparisons between an image and itself (B, B)
+#         in_numer = same_label
+#         in_numer[torch.eye(in_numer.shape[0], dtype=bool)] = False
+#         # delete same_label so don't need to copy for in_numer
+#         del same_label
+#         # count numerator terms for averaging (B,)
+#         numer_count = in_numer.sum(dim=0).to(dtype=torch.float16, device=device)
+#         # numerator activations with others zeroed (B, B)
+#         numer_logits = torch.zeros_like(logits, dtype=torch.float16)
+#         numer_logits[in_numer] = logits[in_numer]
+
+#         # construct denominator term for each numerator via logsumexp over a stack (B, B)
+#         log_denom = torch.zeros_like(logits, dtype=torch.float16)
+#         log_denom[in_numer] = torch.stack(
+#             (numer_logits[in_numer], base_denom[in_numer]), dim=0
+#         ).logsumexp(dim=0)
+
+#         # cross entropy loss of each positive pair with the logsumexp of the negative classes (B, B)
+#         # entries not in numerator set to 0
+#         ce = -1 * (numer_logits - log_denom)
+#         # take average over rows with entry count then average over batch
+#         loss = torch.sum(ce / numer_count.to(device)) / ce.shape[0]
+
+#         return loss
 
 
 class MultiviewSINCERELoss(SINCERELoss):
@@ -202,62 +267,127 @@ class InfoNCELoss(SINCERELoss):
         # create self-supervised labels
         labels = torch.arange(0, embeds.shape[0]).repeat_interleave(embeds.shape[1])
         return super().forward(reshaped_embeds, labels)
-    
+
 class EpsSupInfoNCELoss(nn.Module):
     def __init__(self, temperature=0.07, epsilon=0.25) -> None:
         super().__init__()
         self.temperature = temperature
         self.epsilon = epsilon
 
-    def forward(self, embeds: torch.Tensor, labels: torch.tensor):
+    def forward(self, embeds: torch.Tensor, labels: torch.Tensor):
         """Supervised InfoNCE REvisited loss with cosine distance
 
         Args:
             embeds (torch.Tensor): (B, D) embeddings of B images normalized over D dimension.
-            labels (torch.tensor): (B,) integer class labels.
+            labels (torch.Tensor): (B,) integer class labels.
 
         Returns:
             torch.Tensor: Scalar loss.
         """
-        # calculate logits (activations) for each embeddings pair (B, B)
-        # using matrix multiply instead of cosine distance function for ~10x cost reduction
-        logits = embeds @ embeds.T
+        device = embeds.device
+
+        # Garantir que os tensores estejam em float16
+        embeds = embeds.to(dtype=torch.float16, device=device)
+        labels = labels.to(dtype=torch.int64, device=device)
+
+        # Calcular logits (B, B)
+        logits = torch.matmul(embeds, embeds.T).to(dtype=torch.float16)
         logits /= self.temperature
-        # determine which logits are between embeds of the same label (B, B)
+
+        # Determinar pares de mesmo rótulo
         same_label = labels.unsqueeze(0) == labels.unsqueeze(1)
 
-        # masking with -inf to get zeros in the summation for the softmax denominator
-        denom_activations = torch.full_like(logits, float("-inf"))
+        # Criar máscara para o denominador
+        denom_activations = torch.full_like(logits, -65504.0, dtype=torch.float16)  # Evita erro com -inf
         denom_activations[~same_label] = logits[~same_label]
-        # get logsumexp of the logits between embeds of different labels for each row (B,)
-        base_denom_row = torch.logsumexp(denom_activations, dim=0)
-        # reshape to be (B, B) with row values equivalent, to be masked later
-        base_denom = base_denom_row.unsqueeze(1).repeat((1, len(base_denom_row)))
 
-        # get mask for numerator terms by removing comparisons between an image and itself (B, B)
-        in_numer = same_label
-        in_numer[torch.eye(in_numer.shape[0], dtype=bool)] = False
-        # delete same_label so don't need to copy for in_numer
-        del same_label
-        # count numerator terms for averaging (B,)
-        numer_count = in_numer.sum(dim=0)
-        # numerator activations with others zeroed (B, B)
-        numer_logits = torch.zeros_like(logits)
+        # Calcular logsumexp para o denominador
+        base_denom_row = torch.logsumexp(denom_activations, dim=0).to(dtype=torch.float16)
+        base_denom = base_denom_row.unsqueeze(1).repeat((1, base_denom_row.shape[0]))
+
+        # Criar máscara para o numerador, removendo comparações consigo mesmo
+        in_numer = same_label.clone()
+        in_numer.fill_diagonal_(False)  # Método seguro para evitar auto-comparação
+
+        # Contar elementos no numerador
+        numer_count = in_numer.sum(dim=0).to(dtype=torch.float16)
+
+        # Criar matriz de logits do numerador
+        numer_logits = torch.zeros_like(logits, dtype=torch.float16)
         numer_logits[in_numer] = logits[in_numer]
 
-        # construct denominator term for each numerator via logsumexp over a stack (B, B)
-        log_denom = torch.zeros_like(logits)
-        log_denom[in_numer] = torch.stack(
-            (numer_logits[in_numer] - self.epsilon, base_denom[in_numer]), dim=0).logsumexp(dim=0)
-        # note that the subtraction of epsilon on previous line is only difference from SINCERE
+        # Criar denominador logsumexp de forma segura
+        stacked = torch.stack([
+            (numer_logits[in_numer] - self.epsilon).to(dtype=torch.float16),  # Corrigido
+            base_denom[in_numer]
+        ], dim=0).to(dtype=torch.float16)  # Garantia de float16
 
-        # cross entropy loss of each positive pair with the logsumexp of the negative classes (B, B)
-        # entries not in numerator set to 0
+        log_denom = torch.zeros_like(logits, dtype=torch.float16)
+        log_denom[in_numer] = torch.logsumexp(stacked, dim=0).to(dtype=torch.float16)
+
+        # Calcular entropia cruzada
         ce = -1 * (numer_logits - log_denom)
-        # take average over rows with entry count then average over batch
+
+        # Normalizar e calcular a perda
         loss = torch.sum(ce / numer_count) / ce.shape[0]
 
         return loss
+   
+# class EpsSupInfoNCELoss(nn.Module):
+#     def __init__(self, temperature=0.07, epsilon=0.25) -> None:
+#         super().__init__()
+#         self.temperature = temperature
+#         self.epsilon = epsilon
+
+#     def forward(self, embeds: torch.Tensor, labels: torch.tensor):
+#         """Supervised InfoNCE REvisited loss with cosine distance
+
+#         Args:
+#             embeds (torch.Tensor): (B, D) embeddings of B images normalized over D dimension.
+#             labels (torch.tensor): (B,) integer class labels.
+
+#         Returns:
+#             torch.Tensor: Scalar loss.
+#         """
+#         # calculate logits (activations) for each embeddings pair (B, B)
+#         # using matrix multiply instead of cosine distance function for ~10x cost reduction
+#         logits = embeds @ embeds.T
+#         logits /= self.temperature
+#         # determine which logits are between embeds of the same label (B, B)
+#         same_label = labels.unsqueeze(0) == labels.unsqueeze(1)
+
+#         # masking with -inf to get zeros in the summation for the softmax denominator
+#         denom_activations = torch.full_like(logits, float("-inf"))
+#         denom_activations[~same_label] = logits[~same_label]
+#         # get logsumexp of the logits between embeds of different labels for each row (B,)
+#         base_denom_row = torch.logsumexp(denom_activations, dim=0)
+#         # reshape to be (B, B) with row values equivalent, to be masked later
+#         base_denom = base_denom_row.unsqueeze(1).repeat((1, len(base_denom_row)))
+
+#         # get mask for numerator terms by removing comparisons between an image and itself (B, B)
+#         in_numer = same_label
+#         in_numer[torch.eye(in_numer.shape[0], dtype=bool)] = False
+#         # delete same_label so don't need to copy for in_numer
+#         del same_label
+#         # count numerator terms for averaging (B,)
+#         numer_count = in_numer.sum(dim=0)
+#         # numerator activations with others zeroed (B, B)
+#         numer_logits = torch.zeros_like(logits)
+#         numer_logits[in_numer] = logits[in_numer]
+
+#         # construct denominator term for each numerator via logsumexp over a stack (B, B)
+#         log_denom = torch.zeros_like(logits)
+#         log_denom[in_numer] = torch.stack(
+#             (numer_logits[in_numer] - self.epsilon, base_denom[in_numer]), dim=0).logsumexp(dim=0)
+#         # note that the subtraction of epsilon on previous line is only difference from SINCERE
+
+#         # cross entropy loss of each positive pair with the logsumexp of the negative classes (B, B)
+#         # entries not in numerator set to 0
+#         ce = -1 * (numer_logits - log_denom)
+#         # take average over rows with entry count then average over batch
+#         loss = torch.sum(ce / numer_count) / ce.shape[0]
+
+#         return loss
 
 
 class MultiviewEpsSupInfoNCELoss(EpsSupInfoNCELoss):
