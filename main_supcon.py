@@ -13,7 +13,7 @@ from torch.utils.tensorboard import SummaryWriter
 #Metrics
 from contrast_acc import contrastive_acc, test_contrastive_acc, test_contrastive_acc_knn
 #Utils
-from util import AverageMeter, adjust_learning_rate, warmup_learning_rate, set_optimizer, save_model, TwoCropTransform, CustomDatasetFromCSV, ContrastiveSequenceBucketCollator
+from util import AverageMeter, adjust_learning_rate, warmup_learning_rate, set_optimizer, save_model, TwoCropTransform, CustomDatasetFromCSV
 #Networks
 from networks.pretrained_models import load_pretrained_model
 #Losses
@@ -21,14 +21,24 @@ from losses import SupConLoss, MultiviewSINCERELoss, MultiviewEpsSupInfoNCELoss,
 #Dataset
 from torch.utils.data import DataLoader
 from torchvision import transforms
-
-
-torch.backends.cudnn.benchmark = True
+#AMP
+from torch.cuda.amp import autocast, GradScaler
 
 
 __all_models = ['resnet50', 
                 'vit_small', 'vit_base', 
                 'dino_vit_small_p_16', 'dino_vit_small_p_8', 'dino_vit_base_p_16', 'dino_vit_base_p_8']
+
+
+def get_free_memory():
+    """Get free memory in MB"""
+    if torch.cuda.is_available():
+        device = torch.device('cuda:0')
+        free, total = torch.cuda.mem_get_info(device)
+        mem_used_MB = (total - free) / 1024 ** 2
+        
+        print(f"Free memory: {free / 1024 ** 2:.2f} MB")
+        print(f"Used memory: {mem_used_MB}MB")
 
 
 def parse_option():
@@ -38,7 +48,7 @@ def parse_option():
     parser.add_argument('--print_freq', type=int, default=50, help='print frequency')
     parser.add_argument('--save_freq', type=int, default=25, help='save frequency')
     parser.add_argument('--batch_size', type=int, default=32, help='batch_size')
-    parser.add_argument('--num_workers', type=int, default=8, help='num of workers to use')
+    parser.add_argument('--num_workers', type=int, default=4, help='num of workers to use')
     parser.add_argument('--epochs', type=int, default=50, help='number of training epochs')
 
     # optimization
@@ -237,7 +247,12 @@ def set_dataset(opt, contrast_trans=True, flag:str=None, fold:int=None):
                                 pin_memory=True,
                                 drop_last=False)
         
+        print('\n[INFO] memory loading dataloader...')
+        get_free_memory()
+        print()
+        
         print('[INFO] Training with holdout mode...')
+
 
         return train_loader, valid_loader
 
@@ -287,6 +302,11 @@ def set_loader(opt:str, fold:int=None):
     else:
         raise ValueError('[INFO] Flag not supported: {}'.format(opt.train_mode))
     
+    print('\n[INFO] memory loading set_dataset()...')
+    get_free_memory()
+    print()
+
+
     return train_loader, valid_loader
 
     
@@ -300,6 +320,10 @@ def set_model(opt):
 
     if opt.model in __all_models:
         model = load_pretrained_model(opt.model)
+
+    print('\n[INFO] memory loading set pretrained model...')
+    get_free_memory()
+    print()
     
     #Set criterion 
     if opt.method == 'SINCERE':
@@ -324,17 +348,23 @@ def set_model(opt):
         # else:
         #     model = model.to(opt.device)
         if torch.cuda.device_count() > 1:
-            # model.encoder = torch.nn.parallel.DistributedDataParallel(model.encoder)
+            #model.encoder = torch.nn.parallel.DistributedDataParallel(model.encoder)
             model.encoder = torch.nn.DataParallel(model.encoder)
         model = model.cuda()
         criterion = criterion.cuda()
         cudnn.benchmark = True
+
+    print('\n[INFO] memory loading set pretrained model and loss...')
+    get_free_memory()
+    print()
 
     return model, criterion
 
 
 def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
     """one epoch training"""
+
+    torch.backends.cudnn.benchmark = True
 
     #Set model to train mode
     model.train()
@@ -345,11 +375,17 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
     av_acc = AverageMeter()
     av_losses = AverageMeter()
 
+    scaler = torch.amp.GradScaler('cuda')
     end = time.time()
 
-    # #Change reshuffle split of data across GPUs
-    # if "device" in opt:
-    #     train_loader.sampler.set_epoch(epoch)
+    # print('\n[INFO] memory train one epoch...')
+    # get_free_memory()
+    # print()
+
+    print('\n[INFO] memory train one epoch...')
+    get_free_memory()
+    print()
+
     for idx, (image_aug_tuple, labels) in enumerate(train_loader):
         av_data_time.update(time.time() - end)
 
@@ -363,29 +399,45 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
                 labels = labels.to(opt.device, non_blocking=True)
         bsz = labels.shape[0]
 
+        print('\n[INFO] idx: ', idx)
+        print('[INFO] batched images and labels...')
+        get_free_memory()
+        print()
+
         # warm-up learning rate
         warmup_learning_rate(opt, epoch, idx, len(train_loader), optimizer)
 
+        optimizer.zero_grad()
+
         # forward
-        #with torch.set_grad_enabled(True):
-        flat_embeds = model(images)
-        # reshape from (2B, D) to (B, 2, D)
-        embeds = torch.cat([aug.unsqueeze(1) for aug in torch.split(flat_embeds, [bsz, bsz], dim=0)], dim=1)
-        # compute losses
-        # loss is averaged across GPU-specific batches if using multiple GPUs, as in SupCon
-        # see MoCo v3 for full batch size parallelization with torch's all_gather
-        if opt.method == 'SINCERE' or opt.method == 'EpsSupInfoNCE' or opt.method == 'SupCon': #Supervised contrastive learning methods
-            loss = criterion(embeds, labels)
-        elif opt.method == 'SimCLR' or opt.method == 'InfoNCE': #Self-supervised contrastive learning methods
-            loss = criterion(embeds)
-        else:
-            raise ValueError('[INFO] Contrastive method not supported in training phase: {}'.
-                             format(opt.method))
+        with torch.amp.autocast(device_type='cuda', dtype=torch.float16):
+            # print('\n[INFO] images and labels to model...')
+            # get_free_memory()
+            # print()
+
+            flat_embeds = model(images)
+            # reshape from (2B, D) to (B, 2, D)
+            feat1, feat2 = torch.split(flat_embeds, [bsz, bsz], dim=0)
+            embeds = torch.cat([feat1.unsqueeze(1), feat2.unsqueeze(1)], dim=1)
+            print('\n[INFO] idx: ', idx)
+            print('[INFO] images and labels to MODEL...')
+            get_free_memory()
+            print()
+            # compute losses
+            # loss is averaged across GPU-specific batches if using multiple GPUs, as in SupCon
+            # see MoCo v3 for full batch size parallelization with torch's all_gather
+            if opt.method == 'SINCERE' or opt.method == 'EpsSupInfoNCE' or opt.method == 'SupCon': #Supervised contrastive learning methods
+                loss = criterion(embeds, labels)
+            elif opt.method == 'SimCLR' or opt.method == 'InfoNCE': #Self-supervised contrastive learning methods
+                loss = criterion(embeds)
+            else:
+                raise ValueError('[INFO] Contrastive method not supported in training phase: {}'.
+                                format(opt.method))
 
         av_losses.update(loss.item(), bsz)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
 
         # compute accuracy
         with torch.no_grad():
@@ -421,6 +473,8 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
 def valid(train_loader, valid_loader, model, criterion, epoch, opt, logger):
     """validation"""
 
+    scaler = torch.amp.GradScaler('cuda')
+
     embedding_dim = {  
         'resnet50': 128,
         'vit_small': 384, 'vit_base': 768, 
@@ -451,20 +505,21 @@ def valid(train_loader, valid_loader, model, criterion, epoch, opt, logger):
         #     loader.sampler.set_epoch(epoch)
         for idx, (image_aug_tuple, labels) in enumerate(loader):
             av_data_time.update(time.time() - end)
-
+            
             images = torch.cat([image_aug_tuple[0], image_aug_tuple[1]], dim=0)
             if torch.cuda.is_available():
-                if "device" not in opt:
+                # if "device" not in opt:
+                #     images = images.cuda(non_blocking=True)
+                #     labels = labels.cuda(non_blocking=True)
+                # else:
                     images = images.cuda(non_blocking=True)
                     labels = labels.cuda(non_blocking=True)
-                else:
-                    images = images.to(opt.device, non_blocking=True)
-                    labels = labels.to(opt.device, non_blocking=True)
             bsz = labels.shape[0]
 
             # forward
             with torch.no_grad():
-                flat_embeds = model(images)
+                with torch.amp.autocast(device_type='cuda', dtype=torch.float16):
+                    flat_embeds = model(images)
             # reshape from (2B, D) to (B, 2, D)
             embeds = torch.cat(
                 [aug.unsqueeze(1) for aug in torch.split(flat_embeds, [bsz, bsz], dim=0)], dim=1)
@@ -497,6 +552,10 @@ def valid(train_loader, valid_loader, model, criterion, epoch, opt, logger):
             
             # update averages
             av_losses.update(loss.item(), bsz)
+           # av_losses.update(loss.item(), bsz)
+           # scaler.scale(loss).backward()
+           # scaler.update()
+            # scaler.update()
 
             # measure elapsed time
             av_batch_time.update(time.time() - end)
@@ -604,15 +663,16 @@ def train_folds(opt):
 
     for fold in range(opt.num_folds):
         print(f"\n[INFO] Training model on fold {fold}...")
-
+        get_free_memory()
         train_loader, valid_loader = set_dataset(opt, contrast_trans=True, flag=opt.train_mode, fold=fold)
-        
+        get_free_memory()
         print(f"Size from train_loader: {len(train_loader)} batches")
         print(f"Size from val_loader: {len(valid_loader)} batches")
 
         model, criterion = set_model(opt)
-
+        get_free_memory()
         optimizer = set_optimizer(opt, model)
+        get_free_memory()
 
         #Tensorboard logger 
         logger = None
@@ -631,6 +691,7 @@ def train_folds(opt):
             adjust_learning_rate(opt, optimizer, epoch)
 
             time1 = time.time()
+            get_free_memory()
             av_train_acc, av_train_loss = train(train_loader, model, criterion, optimizer, epoch, opt, logger)
             time2 = time.time()
 
@@ -642,7 +703,6 @@ def train_folds(opt):
 
             print(f'Epoch {epoch}, Fold {fold}, Total Time: {time2 - time1:.2f}s')
 
-            print("[Validation]...")
             av_val_loss, av_val_acc, av_val_acc5 = valid(train_loader, valid_loader, model, criterion, epoch, opt, logger) 
 
             fold_losses_val.append(av_val_loss)
