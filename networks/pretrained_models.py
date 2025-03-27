@@ -43,8 +43,8 @@ def load_pretrained_model(model_name):
     if model_name == "resnet50":
         # Visit: https://github.com/HobbitLong/SupContrast/issues/146
         pretrained_net = resnet50(weights=ResNet50_Weights.DEFAULT)
-        model = SupConResNet(name=model_name)
         pretrained_net.fc = torch.nn.Identity()
+        model = SupConResNet(name=model_name)
         model.encoder.load_state_dict(pretrained_net.state_dict(), strict=False)
 
         return model
