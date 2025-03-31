@@ -21,8 +21,6 @@ from losses import SupConLoss, MultiviewSINCERELoss, MultiviewEpsSupInfoNCELoss,
 #Dataset
 from torch.utils.data import DataLoader
 from torchvision import transforms
-#AMP
-from torch.cuda.amp import autocast, GradScaler
 
 
 __all_models = ['resnet50', 
@@ -53,7 +51,7 @@ def parse_option():
 
     # optimization
     parser.add_argument('--learning_rate', type=float, default=0.0001, help='learning rate')
-    parser.add_argument('--lr_decay_epochs', type=str, default='20, 30, 40', help='where to decay lr, can be a list')
+    parser.add_argument('--lr_decay_epochs', type=str, default='20, 30, 40, 70', help='where to decay lr, can be a list')
     parser.add_argument('--lr_decay_rate', type=float, default=0.1, help='decay rate for learning rate')
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='weight decay')
     parser.add_argument('--momentum', type=float, default=0.9, help='momentum')
@@ -68,8 +66,8 @@ def parse_option():
     parser.add_argument('--dataset', type=str, default='cifar10', 
                         choices=['cifar10', 'cifar100', 'imagenet100', 'imagenet', 'cifar2', 'aircraft', 'cars', 'path'], 
                         help='Dataset')
-    parser.add_argument('--mean', type=str, help='mean of dataset in path in form of str tuple')
-    parser.add_argument('--std', type=str, help='std of dataset in path in form of str tuple')
+    #parser.add_argument('--mean', type=str, help='mean of dataset in path in form of str tuple')
+    #parser.add_argument('--std', type=str, help='std of dataset in path in form of str tuple')
     parser.add_argument('--data_folder', type=str, default=None, help='path to custom dataset')
     parser.add_argument('--size', type=int, default=32, help='size of images after resizing')
 
@@ -106,8 +104,8 @@ def parse_option():
     if opt.data_folder is None:
         opt.data_folder = './datasets/'
 
-    opt.model_path = './save/{}/{}_models'.format(opt.method, opt.dataset)
-    opt.tb_path = './save/{}/{}_tensorboard'.format(opt.method, opt.dataset)
+    opt.model_path = './save_{}/{}/{}_models'.format(time.strftime("%Y_%m_%d"), opt.method, opt.dataset)
+    opt.tb_path = './save_{}/{}/{}_tensorboard'.format(time.strftime("%Y_%m_%d"), opt.method, opt.dataset)
 
     iterations = opt.lr_decay_epochs.split(',')
     opt.lr_decay_epochs = list([])
@@ -148,13 +146,14 @@ def parse_option():
     print("\n[INFO] Printing arguments for pre-training stage...")
     print(opt)
     
-    print("\n[INFO] Training with gpu: {}".format(torch.cuda.get_device_name()))
+    print("\n[INFO] Training with gpu: {}\n".format(torch.cuda.get_device_name()))
 
     return opt
 
 
 def set_dataset(opt, contrast_trans=True, flag:str=None, fold:int=None):
 
+    #Normalization based on ImageNet dataset: https://stackoverflow.com/questions/58151507/why-pytorch-officially-use-mean-0-485-0-456-0-406-and-std-0-229-0-224-0-2
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     
     if contrast_trans:
@@ -192,13 +191,6 @@ def set_dataset(opt, contrast_trans=True, flag:str=None, fold:int=None):
             val_fold=fold,
             train=False
         )
-
-        # contrastive_collator = ContrastiveSequenceBucketCollator(
-        #     choose_length=torch.max,  # Estratégia de truncamento
-        #     sequence_index=0,  # Índice da sequência (imagem)
-        #     length_index=1,  # Índice do comprimento
-        #     label_index=2  # Índice do rótulo
-        # )
 
         train_loader = DataLoader(train_dataset, 
                               batch_size=opt.batch_size, 
@@ -280,50 +272,41 @@ def set_loader(opt:str, fold:int=None):
 
     Args:
         opt (str): _description_
-        flag (str, optional): _description_. Defaults to None.
         fold (int, optional): _description_. Defaults to None.
 
     Raises:
-        ValueError: Flag not supported
+        ValueError: _description_
 
     Returns:
         _type_: _description_
-    """    
+    """   
 
     if opt.train_mode == 'cross-validation':
-        train_loader, valid_loader = set_dataset(opt, contrast_trans=True, fold=fold)
         print('[INFO] Training with cross-validation mode...')
+        train_loader, valid_loader = set_dataset(opt, contrast_trans=True, fold=fold)
     elif opt.train_mode == 'holdout':
-        train_loader, valid_loader = set_dataset(opt, contrast_trans=True, fold=None)
         print('[INFO] Training with holdout mode...')
-    elif opt.train_mode == 'contrastive-mode':
         train_loader, valid_loader = set_dataset(opt, contrast_trans=True, fold=None)
+    elif opt.train_mode == 'contrastive-mode':
         print('[INFO] Training with contrastive mode...')
+        train_loader, valid_loader = set_dataset(opt, contrast_trans=True, fold=None)
     else:
         raise ValueError('[INFO] Flag not supported: {}'.format(opt.train_mode))
-    
-    # print('\n[INFO] memory loading set_dataset()...')
-    # get_free_memory()
-    # print()
 
 
     return train_loader, valid_loader
 
     
 
-def set_model(opt):
+def set_model(opt:str):
 
-    print('\n[INFO] Setting model and criterion...')
+    print('\n[INFO] Setting model and criterion...\n')
 
     # Set the model
     model = None
 
     if opt.model in __all_models:
         model = load_pretrained_model(opt.model)
-
-    # print('\n[INFO] memory loading set pretrained model...')
-    # get_free_memory()
-    # print()
 
     #Set criterion 
     if opt.method == 'SINCERE':
@@ -343,29 +326,25 @@ def set_model(opt):
                          format(opt.method))
 
     if torch.cuda.is_available():
-        # if "device" not in opt:
-        #     model = model.cuda()
-        # else:
-        #     model = model.to(opt.device)
+        if "device" not in opt:
+            model = model.cuda()
+        else:
+            model = model.to(opt.device)
         if torch.cuda.device_count() > 1:
-            #model.encoder = torch.nn.parallel.DistributedDataParallel(model.encoder)
-            model.encoder = torch.nn.DataParallel(model.encoder)
+            print(f'[INFO] Using {torch.cuda.device_count()} GPUs in distributed data parallel mode...')
+            model.encoder = torch.nn.parallel.DistributedDataParallel(model.encoder)
+            # model.encoder = torch.nn.DataParallel(model.encoder)
         model = model.cuda()
         criterion = criterion.cuda()
-        cudnn.benchmark = True
-
-    # print('\n[INFO] memory loading set pretrained model and loss...')
-    # get_free_memory()
-    # print()
+        torch.backends.cudnn.benchmark = True
+        # torch.backends.cuda.matmul.allow_tf32 = True
 
     return model, criterion
 
 
 def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
     """one epoch training"""
-
-    torch.backends.cudnn.benchmark = True
-
+    
     #Set model to train mode
     model.train()
 
@@ -377,14 +356,6 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
 
     scaler = torch.amp.GradScaler('cuda')
     end = time.time()
-
-    # print('\n[INFO] memory train one epoch...')
-    # get_free_memory()
-    # print()
-
-    # print('\n[INFO] memory train one epoch...')
-    # get_free_memory()
-    # print()
 
     for idx, (image_aug_tuple, labels) in enumerate(train_loader):
         av_data_time.update(time.time() - end)
@@ -449,13 +420,13 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
         end = time.time()
 
         # print info
-        if (idx + 1) % opt.print_freq == 0:
+        if (idx + 1) % opt.print_freq == 0 or (idx + 1) == len(train_loader):
             print('[Train] Epoch: [{0}][{1}/{2}]\t'
                   'BT {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   'DT {data_time.val:.3f} ({data_time.avg:.3f})\t'
                   'Loss {loss.val:.3f} ({loss.avg:.3f})'.format(
                     epoch, idx + 1, len(train_loader), batch_time=av_batch_time,
-                    data_time=av_data_time, loss=av_losses))
+                    data_time=av_data_time, loss=av_losses))           
             sys.stdout.flush()
 
     # tensorboard logger to save accuracy and loss
@@ -596,11 +567,12 @@ def valid(train_loader, valid_loader, model, criterion, epoch, opt, logger):
 #CONFIGURAR main para multiplas opcoes de train mode
 
 def train_holdout(opt):
+
     # build data loader
     train_loader, valid_loader = set_dataset(opt, contrast_trans=True, flag=opt.train_mode, fold=None)
 
-    print(f"Size from train_loader: {len(train_loader)} batches")
-    print(f"Size from val_loader: {len(valid_loader)} batches")
+    print(f"\tSize from train_loader: {len(train_loader)} batches")
+    print(f"\tSize from val_loader: {len(valid_loader)} batches")
 
     # build model
     model, criterion = set_model(opt)
@@ -658,17 +630,15 @@ def train_folds(opt):
     std_devs5_val = []
 
     for fold in range(opt.num_folds):
-        print(f"\n[INFO] Training model on fold {fold}...")
-        get_free_memory()
-        train_loader, valid_loader = set_dataset(opt, contrast_trans=True, flag=opt.train_mode, fold=fold)
-        get_free_memory()
-        print(f"Size from train_loader: {len(train_loader)} batches")
-        print(f"Size from val_loader: {len(valid_loader)} batches")
+
+        train_loader, valid_loader = set_dataset(opt, contrast_trans=True, flag=opt.train_mode, fold=opt.num_folds)
+        
+        print(f"[INFO] Training model on fold {fold}...")
+        print(f"\tSize from train_loader: {len(train_loader)} batches")
+        print(f"\tSize from val_loader: {len(valid_loader)} batches")
 
         model, criterion = set_model(opt)
-        get_free_memory()
         optimizer = set_optimizer(opt, model)
-        get_free_memory()
 
         #Tensorboard logger 
         logger = None
@@ -687,17 +657,17 @@ def train_folds(opt):
             adjust_learning_rate(opt, optimizer, epoch)
 
             time1 = time.time()
-            get_free_memory()
+            # get_free_memory()
             av_train_acc, av_train_loss = train(train_loader, model, criterion, optimizer, epoch, opt, logger)
             time2 = time.time()
 
-            print(f"\tloss train: {av_train_loss}")
-            print(f"\tacc train: {av_train_acc}")
+            # print(f"\tloss train: {av_train_loss}")
+            # print(f"\tacc train: {av_train_acc}")
 
             fold_losses_train.update(av_train_loss)
             fold_acc_train.update(av_train_acc)
 
-            print(f'Epoch {epoch}, Fold {fold}, Total Time: {time2 - time1:.2f}s')
+            print(f'[INFO] Epoch {epoch}, Fold {fold}, Total Time: {time2 - time1:.2f}s')
 
             av_val_loss, av_val_acc, av_val_acc5 = valid(train_loader, valid_loader, model, criterion, epoch, opt, logger) 
 
