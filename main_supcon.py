@@ -562,52 +562,49 @@ def valid(train_loader, valid_loader, model, criterion, epoch, opt, logger):
 
 def train_holdout(opt):
 
-    # build data loader
+    # Build data loader
     train_loader, valid_loader = set_dataset(opt, contrast_trans=True, flag=opt.train_mode, fold=None)
 
     print(f"\tSize from train_loader: {len(train_loader)} batches")
     print(f"\tSize from val_loader: {len(valid_loader)} batches")
 
-    # build model
+    # Build model with criterion loss
     model, criterion = set_model(opt)
 
-    # build optimizer
+    # Build optimizer
     optimizer = set_optimizer(opt, model)
 
-    # tensorboard, only for first process if multiple
+    # Tensorboard, only for first process if multiple
     if "device" not in opt or opt.device == 0:
         logger = SummaryWriter(log_dir=opt.tb_folder)
 
-    # training routine
+    # Training routine
     print('\n[INFO] Training model with stage one...')
     for epoch in range(1, opt.epochs + 1):
        
         adjust_learning_rate(opt, optimizer, epoch)
 
-        # train for one epoch
+        # Train for one epoch
         time1 = time.time()
         train(train_loader, model, criterion, optimizer, epoch, opt, logger)
         time2 = time.time()
-        #[TODO] Talvez precisamos voltar aqui para validar melhor essa parte da loss
-        # use valid_loader if present
-        # if epoch % 5 == 0 and valid_loader is not None:
+        
+        # Use valid loader if available
         if valid_loader is not None:
             valid(train_loader, valid_loader, model, criterion, epoch, opt, logger) 
         print('epoch {}, total time {:.2f}'.format(epoch, time2 - time1))
 
-        # checkpoint
+        # Checkpoints
         if epoch % opt.save_freq == 0:
             save_file = os.path.join(
                 opt.save_folder, 'ckpt_epoch_{epoch}.pth'.format(epoch=epoch))
             save_model(model, optimizer, opt, epoch, save_file)
 
-    # save the last model
+    # Save the last model
     save_file = os.path.join(
         opt.save_folder, 'last.pth')
     save_model(model, optimizer, opt, opt.epochs, save_file)
 
-    # print test statistics
-    # test(model, opt)
 
 def train_folds(opt):
 
@@ -639,7 +636,6 @@ def train_folds(opt):
         if "device" not in opt or opt.device == 0:
             logger = SummaryWriter(log_dir=os.path.join(opt.tb_folder, f"fold_{fold}"))
 
-      
         fold_acc_train = AverageMeter()
         fold_losses_train = AverageMeter()  
         fold_losses_val = []  
