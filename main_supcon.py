@@ -25,7 +25,8 @@ from torchvision import transforms
 
 __all_models = ['resnet50', 
                 'vit_small', 'vit_base', 
-                'dino_vit_small_p_16', 'dino_vit_small_p_8', 'dino_vit_base_p_16', 'dino_vit_base_p_8']
+                'dino_vit_small_p_16', 'dino_vit_small_p_8', 'dino_vit_base_p_16', 'dino_vit_base_p_8',
+                'dinov2_vit_small_p_14', 'dinov2_vit_base_p_14']
 
 
 def get_free_memory():
@@ -60,7 +61,8 @@ def parse_option():
     parser.add_argument('--model', type=str, default='resnet50', choices=['resnet50', 
                                                                           'vit_small', 'vit_base',
                                                                           'dino_vit_small_p_16', 'dino_vit_small_p_8', 
-                                                                          'dino_vit_base_p_16', 'dino_vit_base_p_8'], 
+                                                                          'dino_vit_base_p_16', 'dino_vit_base_p_8',
+                                                                          'dinov2_vit_small_p_14', 'dinov2_vit_base_p_14'], 
                         help='Choose your backbone')
     #parser.add_argument('--n_cls', type=int, default=None, help='Number of classes for your dataset')
     parser.add_argument('--dataset', type=str, default='cifar10', 
@@ -349,6 +351,7 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
     av_losses = AverageMeter()
 
     scaler = torch.amp.GradScaler('cuda')
+    
     end = time.time()
 
     for idx, (image_aug_tuple, labels) in enumerate(train_loader):
@@ -444,7 +447,9 @@ def valid(train_loader, valid_loader, model, criterion, epoch, opt, logger):
         'resnet50': 128,
         'vit_small': 384, 'vit_base': 768, 
         'dino_vit_small_p_16': 384, 'dino_vit_small_p_8': 384,
-        'dino_vit_base_p_16': 768, 'dino_vit_base_p_8': 768
+        'dino_vit_base_p_16': 768, 'dino_vit_base_p_8': 768,
+        'dinov2_vit_small_p_14': 384, 'dinov2_vit_base_p_14': 768
+
     }.get(opt.model)
 
     #Caches to training/valid/test
