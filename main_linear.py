@@ -15,8 +15,13 @@ from util import AverageMeter
 from util import adjust_learning_rate, warmup_learning_rate, accuracy, save_model, set_optimizer
 from networks.resnet_big import SupConResNet, LinearClassifier
 import networks.vit as vits
-from networks.dino_models import load_dino_model
+# from networks.dino_models import load_dino_model
 from torchvision.models import resnet50, ResNet50_Weights
+# from main_supcon import set_dataset, set_loader, train_holdout
+
+from util import TwoCropTransform, CustomDatasetFromCSV
+from torchvision import transforms
+from torch.utils.data import DataLoader
 
 
 import util
@@ -26,32 +31,18 @@ def parse_option():
 
     parser = argparse.ArgumentParser('Arguments for training...')
     
-    parser.add_argument('--print_freq', type=int, default=10,
-                        help='print frequency')
-    parser.add_argument('--save_freq', type=int, default=50,
-                        help='save frequency')
-    parser.add_argument('--batch_size', type=int, default=256,
-                        help='batch_size')
-    parser.add_argument('--num_workers', type=int, default=16,
-                        help='num of workers to use')
-    parser.add_argument('--epochs', type=int, default=100,
-                        help='number of training epochs')
+    parser.add_argument('--print_freq', type=int, default=50, help='print frequency')
+    parser.add_argument('--save_freq', type=int, default=25, help='save frequency')
+    parser.add_argument('--batch_size', type=int, default=32, help='batch_size')
+    parser.add_argument('--num_workers', type=int, default=8, help='num of workers to use')
+    parser.add_argument('--epochs', type=int, default=100, help='number of training epochs')
 
     # optimization
-    parser.add_argument('--learning_rate', type=float, default=0.1,
-                        help='learning rate')
-    
-    parser.add_argument('--lr_decay_epochs', type=str, default='60,75,90',
-                        help='where to decay lr, can be a list')
-    
-    parser.add_argument('--lr_decay_rate', type=float, default=0.2,
-                        help='decay rate for learning rate')
-    
-    parser.add_argument('--weight_decay', type=float, default=0,
-                        help='weight decay')
-    
-    parser.add_argument('--momentum', type=float, default=0.9,
-                        help='momentum')
+    parser.add_argument('--learning_rate', type=float, default=0.0001, help='learning rate')
+    parser.add_argument('--lr_decay_epochs', type=str, default='20, 30, 40, 70', help='where to decay lr, can be a list')
+    parser.add_argument('--lr_decay_rate', type=float, default=0.1, help='decay rate for learning rate')
+    parser.add_argument('--weight_decay', type=float, default=1e-4, help='weight decay')
+    parser.add_argument('--momentum', type=float, default=0.9, help='momentum')
 
     # model dataset
     # Aqui tem as alterações para o modelo e dataset // mexer aqui
@@ -60,55 +51,52 @@ def parse_option():
                                                                           'dino_vit_small_p_16', 'dino_vit_small_p_8', 
                                                                           'dino_vit_base_p_16', 'dino_vit_base_p_8'], 
                         help='Choose your backbone')
-    parser.add_argument('--n_cls', type=int, default=9, help='number of classes') #for platonicsolids dataset
+    parser.add_argument('--n_cls', type=int, default=10, help='number of classes') #for platonicsolids dataset
     parser.add_argument('--dataset', type=str, default='cifar10',
                         choices=['cifar10', 'cifar100', 'imagenet100', 'imagenet', 'cifar2',
                                  'aircraft', 'cars', 'food101', 'pet', 'dtd', 'flowers', 'path'],
                         help='dataset')
-    parser.add_argument('--valid_split', type=float, default=0,
-                        help="proportion of train data to use for validation set")
-    parser.add_argument('--mean', type=str,
-                        help='mean of dataset in path in form of str tuple')
-    parser.add_argument('--std', type=str,
-                        help='std of dataset in path in form of str tuple')
-    parser.add_argument('--data_folder', type=str,
-                        default=None, help='path to custom dataset')
+    parser.add_argument('--size', type=int, default=32, help='size of images after resizing')
+    parser.add_argument('--data_folder', type=str, default=None, help='path to custom dataset')
+
     # parser.add_argument('--valid_split', type=float, default=0,
     #                     help="proportion of train data to use for validation set")
-    parser.add_argument('--size', type=int, default=32,
-                        help='size of images after resizing')
+    # parser.add_argument('--mean', type=str,
+    #                     help='mean of dataset in path in form of str tuple')
+    # parser.add_argument('--std', type=str,
+    #                     help='std of dataset in path in form of str tuple')
+    # parser.add_argument('--valid_split', type=float, default=0,
+    #                     help="proportion of train data to use for validation set")
 
     # other setting
-    parser.add_argument('--cosine', action='store_true',
-                        help='using cosine annealing')
-    parser.add_argument('--warm', action='store_true',
-                        help='warm-up for large batch training')
+    parser.add_argument('--cosine', action='store_true', help='using cosine annealing')
+    parser.add_argument('--warm', action='store_true', help='warm-up for large batch training')
+    parser.add_argument('--ckpt', type=str, default='', help='path to pre-trained model')
 
-    parser.add_argument('--ckpt', type=str, default='',
-                        help='path to pre-trained model')
+
+    parser.add_argument('--root_path', type=str, default='', help='root path to dataset')
+    parser.add_argument('--train_mode', type=str, default='holdout', 
+                        choices=['holdout', 'cross-validation', 'contrastive-mode'],
+                        help='Choose your training mode and set the csv file accordingly')
+    
+    parser.add_argument('--train_file', type=str, default='Datasets/KFolds/SKF_TRAIN_Fold_1.csv', help='csv file for training')
+    parser.add_argument('--val_file', type=str, default='Datasets/KFolds/SKF_VAL_Fold_1.csv', help='csv file for validation')
+    parser.add_argument('--test_file', type=str, default='Datasets/test.csv', help='csv file for testing')
+    parser.add_argument('--num_folds', type=int, default=None, help='Number of folds for cross-validation based on your csv file')
 
     opt = parser.parse_args()
 
 
-
     # check if dataset is path that passed required arguments
     if opt.dataset == 'path':
-        assert opt.data_folder is not None
-        assert opt.mean is not None
-        assert opt.std is not None
+        # assert opt.data_folder is not None
+        # assert opt.mean is not None
+        # assert opt.std is not None
         assert opt.n_cls is not None
 
     # set the path according to the environment
     if opt.data_folder is None:
         opt.data_folder = './datasets/'
-
-    # # set the path according to the environment
-    # if opt.dataset == 'imagenet100':
-    #     opt.data_folder = '/cluster/tufts/hugheslab/datasets/ImageNet100/train/'
-    # elif opt.dataset == 'imagenet':
-    #     opt.data_folder = '/cluster/tufts/hugheslab/datasets/ImageNet/train/'
-    # else:
-    #     opt.data_folder = './datasets/'
 
     iterations = opt.lr_decay_epochs.split(',')
     opt.lr_decay_epochs = list([])
@@ -175,25 +163,100 @@ def parse_option():
     return opt
 
 
-def set_model(opt):
+def set_loader(opt:str, contrast_trans:bool=False, for_test:bool=True):
+
+    #Normalization based on ImageNet dataset: https://stackoverflow.com/questions/58151507/why-pytorch-officially-use-mean-0-485-0-456-0-406-and-std-0-229-0-224-0-2
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+
+    if for_test:
+        train_transform = transforms.Compose([
+                transforms.RandomResizedCrop(size=opt.size, scale=(0.2, 1.)),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                normalize,
+            ])
+        test_transform = transforms.Compose([
+                transforms.Resize([opt.size, opt.size]),
+                transforms.ToTensor(),
+                normalize,
+            ])
+    
+        val_transform = test_transform
+    
+    train_dataset = CustomDatasetFromCSV(
+            path_root=opt.root_path,
+            tf_image=train_transform,
+            csv_name=opt.train_file,
+            val_fold=None,
+            train=True
+        )
+    
+    val_dataset = CustomDatasetFromCSV(
+            path_root=opt.root_path,
+            tf_image=val_transform,
+            csv_name=opt.train_file,
+            val_fold=None,
+            train=True
+        )
+    
+    test_dataset = CustomDatasetFromCSV(
+            path_root=opt.root_path,
+            tf_image=test_transform,
+            csv_name=opt.test_file,
+            val_fold=None,
+            train=False
+        )
+
+    train_loader = DataLoader(train_dataset, 
+                              batch_size=opt.batch_size, 
+                              shuffle=True, 
+                              num_workers=opt.num_workers,
+                              pin_memory=True,
+                              prefetch_factor=2)
+  
+    valid_loader = DataLoader(val_dataset, 
+                                batch_size=opt.batch_size, 
+                                shuffle=False, 
+                                num_workers=opt.num_workers,
+                                pin_memory=True,
+                                prefetch_factor=2)
+    
+    test_loader = DataLoader(test_dataset, 
+                                batch_size=opt.batch_size, 
+                                shuffle=False, 
+                                num_workers=opt.num_workers,
+                                pin_memory=True,
+                                prefetch_factor=2)
+        
+    # print('[INFO] Training with cross-validation mode...')
+        
+    return train_loader, valid_loader, test_loader
+
+
+def set_model(opt:str):
 
     print('\n[INFO] Setting model and criterion with linear classifier...')
 
     # Set the model
+   
+
     # If model is ViT
-    if "vit_small" in opt.model: 
-        model = vits.SupConViT(name=opt.model, feat_dim=384)
-        classifier = vits.LinearClassifierViT(name=opt.model, num_classes=opt.n_cls)
-    elif "vit_base" in opt.model: 
-        model = vits.SupConViT(name=opt.model, feat_dim=768)
-        classifier = vits.LinearClassifierViT(name=opt.model, num_classes=opt.n_cls)
-    elif "dino_vit_small_p_16" in opt.model:#não ta funcionando ainda
+    # if "vit_small" in opt.model: 
+    #     model = vits.SupConViT(name=opt.model, feat_dim=384)
+    #     classifier = vits.LinearClassifierViT(name=opt.model, num_classes=opt.n_cls)
+    # elif "vit_base" in opt.model: 
+    #     model = vits.SupConViT(name=opt.model, feat_dim=768)
+    #     classifier = vits.LinearClassifierViT(name=opt.model, num_classes=opt.n_cls)
+    if opt.model == "vit_small" or opt.model == "dino_vit_small_p_16" or opt.model == 'dino_vit_small_p_8':#não ta funcionando ainda
         model = vits.SupConViT(name=opt.model, feat_dim=384)
         # model = load_dino_model(opt.model, opt.ckpt, None, linear_eval=True)
         # model = util.load_pretrained_weights(opt.model, opt.ckpt, opt.checkpoint_key)
         # model = vits.SupConViT(name=opt.model, feat_dim=[opt.model])
         classifier = vits.LinearClassifierViT(name=opt.model, num_classes=opt.n_cls)
-    elif "resnet50" in opt.model: #If model is resnet
+    elif opt.model == "vit_base" or opt.model == "dino_vit_base_p_16" or opt.model == 'dino_vit_base_p_8':
+        model = vits.SupConViT(name=opt.model, feat_dim=768)
+        classifier = vits.LinearClassifierViT(name=opt.model, num_classes=opt.n_cls)
+    elif opt.model == "resnet50": #If model is resnet
         model = SupConResNet(name=opt.model)
         classifier = LinearClassifier(name=opt.model, num_classes=opt.n_cls)
     else:
@@ -267,8 +330,8 @@ def train(train_loader, model, classifier, criterion, optimizer, epoch, opt):
         end = time.time()
 
         # print info
-        if (idx + 1) % opt.print_freq == 0:
-            print('Train: [{0}][{1}/{2}]\t'
+        if (idx + 1) % opt.print_freq == 0 or (idx + 1) == len(train_loader):
+            print('[Train] Epoch: [{0}][{1}/{2}]\t'
                   'BT {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   'DT {data_time.val:.3f} ({data_time.avg:.3f})\t'
                   'loss {loss.val:.3f} ({loss.avg:.3f})\t'
@@ -314,15 +377,61 @@ def validate(val_loader, model, classifier, criterion, opt):
             batch_time.update(time.time() - end)
             end = time.time()
 
-            if idx % opt.print_freq == 0:
-                print('Test: [{0}/{1}]\t'
+            if idx % opt.print_freq == 0 or (idx + 1) == len(val_loader):
+                print('Valid: [{0}/{1}]\t'
                       'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                       'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
                       'Acc@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
                        idx, len(val_loader), batch_time=batch_time,
                        loss=losses, top1=top1))
 
-    print(' * Acc@1 {top1.avg:.3f} | Acc@5 {top5.avg:.3f}'.format(top1=top1, top5=top5))
+    print('\t[INFO] * Average validation: Acc@1 {top1.avg:.3f} | Acc@5 {top5.avg:.3f}'.format(top1=top1, top5=top5))
+    return losses.avg, top1.avg
+
+
+def test(test_loader, model, classifier, criterion, opt):
+    """testing"""
+    model.eval()
+    classifier.eval()
+
+    batch_time = AverageMeter()
+    losses = AverageMeter()
+    top1 = AverageMeter()
+    top5 = AverageMeter()
+
+    with torch.no_grad():
+        end = time.time()
+        for idx, (images, labels) in enumerate(test_loader):
+            images = images.float().cuda()
+            labels = labels.cuda()
+            bsz = labels.shape[0]
+
+            # forward
+            output = classifier(model.encoder(images))
+            loss = criterion(output, labels)
+
+            # update metric
+            losses.update(loss.item(), bsz)
+            if opt.n_cls > 4:
+                acc1, acc5 = accuracy(output, labels, topk=(1, 5))
+                top5.update(acc5[0], bsz)
+            else:
+                acc1 = accuracy(output, labels, topk=(1,))[0]
+            top1.update(acc1[0], bsz)
+
+            # measure elapsed time
+            batch_time.update(time.time() - end)
+            end = time.time()
+
+            if idx % opt.print_freq == 0:
+                print('Test: [{0}/{1}]\t'
+                      'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                      'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                      'Acc@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
+                       idx, len(test_loader), batch_time=batch_time,
+                       loss=losses, top1=top1))
+
+    print('\t[INFO] * Average testing: Acc@1 {top1.avg:.3f} | Acc@5 {top5.avg:.3f}'.format(top1=top1, top5=top5))
     return losses.avg, top1.avg
 
 
@@ -331,7 +440,7 @@ def cache_outputs(val_loader, model, classifier, opt):
     model.eval()
     classifier.eval()
     # caches for outputs
-    print("Model used: ", opt.model)
+    # print("Model used: ", opt.model)
 
     # Define as dimensões de embeddings para diferentes arquiteturas
     embedding_dim = {  
@@ -341,7 +450,8 @@ def cache_outputs(val_loader, model, classifier, opt):
         'dino_vit_base_p_16': 768, 'dino_vit_base_p_8': 768
     }.get(opt.model)
     
-    embedding_dim = embedding_dim.get(opt.model)  
+    # embedding_dim = embedding_dim.get(opt.model)  
+
     embeds = torch.empty((0, int(embedding_dim)))
     preds = torch.empty((0, opt.n_cls))
     labels = torch.empty((0,))
@@ -369,7 +479,7 @@ def main():
     opt = parse_option()
 
     # build data loader
-    train_loader, val_loader, test_loader = set_loader(opt, contrast_trans=False)
+    train_loader, val_loader, test_loader = set_loader(opt, contrast_trans=False, for_test=True)
 
     # build model and criterion
     model, classifier, criterion = set_model(opt)
@@ -396,8 +506,8 @@ def main():
             if val_acc > best_acc:
                 best_acc = val_acc
         # print final accuracy for the test set evaluation run
-        elif epoch == opt.epochs:
-            validate(test_loader, model, classifier, criterion, opt)
+        if test_loader is not None and epoch == opt.epochs:
+            test(test_loader, model, classifier, criterion, opt)
 
     print('best accuracy: {:.2f}'.format(best_acc))
 

@@ -46,8 +46,8 @@ def parse_option():
     parser.add_argument('--print_freq', type=int, default=50, help='print frequency')
     parser.add_argument('--save_freq', type=int, default=25, help='save frequency')
     parser.add_argument('--batch_size', type=int, default=32, help='batch_size')
-    parser.add_argument('--num_workers', type=int, default=4, help='num of workers to use')
-    parser.add_argument('--epochs', type=int, default=50, help='number of training epochs')
+    parser.add_argument('--num_workers', type=int, default=8, help='num of workers to use')
+    parser.add_argument('--epochs', type=int, default=100, help='number of training epochs')
 
     # optimization
     parser.add_argument('--learning_rate', type=float, default=0.0001, help='learning rate')
@@ -239,12 +239,7 @@ def set_dataset(opt, contrast_trans=True, flag:str=None, fold:int=None):
                                 pin_memory=True,
                                 drop_last=False)
         
-        # print('\n[INFO] memory loading dataloader...')
-        # get_free_memory()
-        # print()
-        
         print('[INFO] Training with holdout mode...')
-
 
         return train_loader, valid_loader
 
@@ -297,7 +292,6 @@ def set_loader(opt:str, fold:int=None):
     return train_loader, valid_loader
 
     
-
 def set_model(opt:str):
 
     print('\n[INFO] Setting model and criterion...\n')
