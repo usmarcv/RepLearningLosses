@@ -1,4 +1,3 @@
-// ##### TESTANDO PERCENT de 30% DATASETS NA MAIN_SUPCON.PY #####
 {
     // Use o IntelliSense para saber mais sobre os atributos possíveis.
     // Focalizar para exibir as descrições dos atributos existentes.
@@ -14,19 +13,19 @@
             "program": "${workspaceFolder}/main_supcon.py",
             "console": "integratedTerminal",
             "args": [
-                "--batch_size", "16",
+                "--batch_size", "4",
                 "--size", "224",
                 "--epochs", "5",
-                "--model", "dino_vit_small_p_16",
-                // "--checkpoint_key", "student",
-                "--percentDataset", "0.3",
+                "--model", "dinov2_vit_base_p_14",
+                "--train_mode", "cross-validation",
+                "--num_folds","4",
+                "--root_path", "",
+                "--train_file", "Datasets/train_new_subfold.csv",
+                "--num_folds", "4",
                 "--learning_rate", "0.001",
                 "--dataset", "path",
-                "--data_folder", "./PlatonicSolidsImages",
-                "--mean", "(0.4914, 0.4822, 0.4465)",
-                "--std", "(0.2675, 0.2565, 0.2761)",
-                "--method", "InfoNCE",
-                "--num_workers", "16", //notebook dell
+                "--method", "SINCERE",
+                "--num_workers", "4", //notebook dell = 4
                 "--warm",
                 "--cosine"
             ],
@@ -34,6 +33,42 @@
         }
     ]
 }
+
+// {
+//     // Use o IntelliSense para saber mais sobre os atributos possíveis.
+//     // Focalizar para exibir as descrições dos atributos existentes.
+//     // Para obter mais informações, acesse: https://go.microsoft.com/fwlink/?linkid=830387
+//     "version": "0.2.0",
+//     "configurations": [
+//         {   
+//             //Rodando stage1
+//             //Testando vit_small para adaptar em dinov1 (stage) com a dinohead utilizando a simclr
+//             "name": "Depurador do Python: main_linear.py",
+//             "type": "debugpy",
+//             "request": "launch",
+//             "program": "${workspaceFolder}/main_linear.py",
+//             "console": "integratedTerminal",
+//             "args": [
+//                 "--batch_size", "32",
+//                 "--size", "128",
+//                 "--epochs", "5",
+//                 "--model", "resnet50",
+//                 "--train_mode", "holdout",
+//                 "--root_path", "",
+//                 "--train_file", "Datasets/KFolds/SKF_TRAIN_Fold_1.csv",
+//                 "--val_file", "Datasets/KFolds/SKF_VAL_Fold_1.csv",
+//                 "--test_file", "Datasets/test.csv",
+//                 "--learning_rate", "0.001",
+//                 "--dataset", "path",
+//                 "--method", "SINCERE",
+//                 "--num_workers", "14", //notebook dell = 4
+//                 "--warm",
+//                 "--cosine"
+//             ],
+//             "justMyCode": false
+//         }
+//     ]
+// }
 
 
 
