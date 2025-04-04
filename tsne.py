@@ -9,12 +9,15 @@ import torch
 #Lembrar de asjustar main_linear.py para salvar os checkpoints
 
 if __name__ == "__main__":
-    out_folders = [Path("save/linear/cifar10_models/cifar10_lr_5.0_bsz_512_new/"),
-                   Path("save/linear/cifar10_models/cifar10_lr_5.0_bsz_512_old/")]
-    fig_folder = Path("figures/tnse")
+    out_folders = [Path("save/linear/path_models/path_lr_0.0001_bsz_32_SINCERE"),
+                   #Path("save/linear/cifar10_models/cifar10_lr_5.0_bsz_512_old/")
+                   ]
+    fig_folder = Path("figures/tsne")
     fig_folder.mkdir(exist_ok=True)
     # CIFAR10 labels
-    class_labels = ('Plane', 'Car', 'Bird', 'Cat', 'Deer', 'Dog', 'Frog', 'Horse', 'Ship', 'Truck')
+    # class_labels = ('Plane', 'Car', 'Bird', 'Cat', 'Deer', 'Dog', 'Frog', 'Horse', 'Ship', 'Truck')
+    # ModelNet10 labels
+    class_labels = ('monitor', 'toilet', 'night_stand', 'desk', 'table', 'bed', 'bathtub', 'sofa', 'chair', 'dresser')
     # calculate embedding statistics
     for out_folder in out_folders:
         print(out_folder)
@@ -27,8 +30,10 @@ if __name__ == "__main__":
         fig, ax = plt.subplots()
         for label in torch.unique(labels):
             is_label = label == labels
-            plt.scatter(proj_embedding[is_label, 0], proj_embedding[is_label, 1],
+            plt.scatter(proj_embedding[is_label, 0], 
+                        proj_embedding[is_label, 1],
                         label=class_labels[int(label)], alpha=.5)
         plt.legend()
-        plt.title("SINCERE Loss" if "new" in out_folder.name else "SupCon Loss")
+
+        plt.title("SINCERE Loss" if "new" in out_folder.name else "SINCERE Loss")
         plt.savefig(fig_folder / (out_folder.name + ".pdf"), bbox_inches='tight')
