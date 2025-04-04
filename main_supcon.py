@@ -115,13 +115,13 @@ def parse_option():
         opt.lr_decay_epochs.append(int(it))
 
     opt.model_name = '{}_{}_{}_lr_{}_decay_{}_bsz_{}_temp_{}_trial_{}'.\
-        format(opt.method, opt.dataset, opt.model, opt.learning_rate,
+        format(opt.method, opt.dataset, opt.model, opt.batch_size, opt.learning_rate, opt.size,
                opt.weight_decay, opt.batch_size, opt.temp, opt.trial)
 
     if opt.cosine:
         opt.model_name = '{}_cosine'.format(opt.model_name)
 
-    # warm-up for large-batch training,
+    # warm-up for large-batch training,w
     if opt.batch_size > 256:
         opt.warm = True
     if opt.warm:
