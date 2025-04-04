@@ -475,7 +475,9 @@ def cache_outputs(val_loader, model, classifier, opt):
 
 
 def main():
+
     best_acc = 0
+    
     opt = parse_option()
 
     # build data loader
@@ -500,12 +502,12 @@ def main():
         print('Train epoch {}, total time {:.2f}, accuracy:{:.2f}'.format(
             epoch, time2 - time1, acc))
 
-        # eval for one epoch
+        # Eval for one epoch
         if val_loader is not None:
             loss, val_acc = validate(val_loader, model, classifier, criterion, opt)
             if val_acc > best_acc:
                 best_acc = val_acc
-        # print final accuracy for the test set evaluation run
+        # Print final accuracy for the test set evaluation run
         if test_loader is not None and epoch == opt.epochs:
             test(test_loader, model, classifier, criterion, opt)
 
