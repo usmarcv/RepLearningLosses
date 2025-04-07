@@ -46,12 +46,12 @@ def parse_option():
 
     # model dataset
     # Aqui tem as alterações para o modelo e dataset // mexer aqui
-    parser.add_argument('--model', type=str, default='resnet50', choices=['resnet50', 
+    parser.add_argument('--model', type=str, default=None, choices=['resnet50', 
                                                                           'vit_small', 'vit_base',
                                                                           'dino_vit_small_p_16', 'dino_vit_small_p_8', 
                                                                           'dino_vit_base_p_16', 'dino_vit_base_p_8'], 
                         help='Choose your backbone')
-    parser.add_argument('--n_cls', type=int, default=10, help='number of classes') #for platonicsolids dataset
+    parser.add_argument('--n_cls', type=int, default=10, help='number of classes') #For CIFAR10
     parser.add_argument('--dataset', type=str, default='cifar10',
                         choices=['cifar10', 'cifar100', 'imagenet100', 'imagenet', 'cifar2',
                                  'aircraft', 'cars', 'food101', 'pet', 'dtd', 'flowers', 'path'],
@@ -103,10 +103,10 @@ def parse_option():
     for it in iterations:
         opt.lr_decay_epochs.append(int(it))
 
-    # get the method used by the checkpoint by grabbing everything before first _ in folder name
+    # get the method name used by the checkpoint by grabbing everything before first _ in folder name
     ckpt_method = Path(opt.ckpt).parts[-2].partition("_")[0]
-    opt.model_name = '{}_lr_{}_bsz_{}_{}'.\
-        format(opt.dataset, opt.learning_rate, opt.batch_size, ckpt_method)
+    opt.model_name = '{}_{}_{}_bsz_{}_lr_{}_size_{}'.\
+        format(opt.dataset, opt.model, ckpt_method, opt.batch_size, opt.learning_rate, opt.size)
 
     if opt.cosine:
         opt.model_name = '{}_cosine'.format(opt.model_name)
@@ -237,21 +237,9 @@ def set_model(opt:str):
 
     print('\n[INFO] Setting model and criterion with linear classifier...')
 
-    # Set the model
-   
-
-    # If model is ViT
-    # if "vit_small" in opt.model: 
-    #     model = vits.SupConViT(name=opt.model, feat_dim=384)
-    #     classifier = vits.LinearClassifierViT(name=opt.model, num_classes=opt.n_cls)
-    # elif "vit_base" in opt.model: 
-    #     model = vits.SupConViT(name=opt.model, feat_dim=768)
-    #     classifier = vits.LinearClassifierViT(name=opt.model, num_classes=opt.n_cls)
+    # Set model
     if opt.model == "vit_small" or opt.model == "dino_vit_small_p_16" or opt.model == 'dino_vit_small_p_8':#não ta funcionando ainda
         model = vits.SupConViT(name=opt.model, feat_dim=384)
-        # model = load_dino_model(opt.model, opt.ckpt, None, linear_eval=True)
-        # model = util.load_pretrained_weights(opt.model, opt.ckpt, opt.checkpoint_key)
-        # model = vits.SupConViT(name=opt.model, feat_dim=[opt.model])
         classifier = vits.LinearClassifierViT(name=opt.model, num_classes=opt.n_cls)
     elif opt.model == "vit_base" or opt.model == "dino_vit_base_p_16" or opt.model == 'dino_vit_base_p_8':
         model = vits.SupConViT(name=opt.model, feat_dim=768)
@@ -266,7 +254,7 @@ def set_model(opt:str):
     criterion = torch.nn.CrossEntropyLoss()
 
     # Load the checkpoint if available (Basically, if we are using a pre-trained model or runned from Stage 1)
-    ckpt = torch.load(opt.ckpt, map_location='cpu')
+    ckpt = torch.load(opt.ckpt, map_location='cpu', weights_only=False)
     state_dict = ckpt['model']
 
     if torch.cuda.is_available():
