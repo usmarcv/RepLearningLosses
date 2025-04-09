@@ -1,39 +1,38 @@
 from pathlib import Path
-
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 import torch
 
-
-#Lembrar de ajustar o TSNE para custom datasets!
-#Lembrar de asjustar main_linear.py para salvar os checkpoints
-
 if __name__ == "__main__":
-    out_folders = [Path("save/linear/path_models/path_lr_0.0001_bsz_32_SINCERE"),
-                   #Path("save/linear/cifar10_models/cifar10_lr_5.0_bsz_512_old/")
-                   ]
+    out_folders = [Path("save_exp_subfolds/CE/path_models/SupCE_path_resnet50_lr_0.0001_decay_0.0001_bsz_128_trial_0_cosine")]
     fig_folder = Path("figures/tsne")
     fig_folder.mkdir(exist_ok=True)
-    # CIFAR10 labels
-    # class_labels = ('Plane', 'Car', 'Bird', 'Cat', 'Deer', 'Dog', 'Frog', 'Horse', 'Ship', 'Truck')
-    # ModelNet10 labels
-    class_labels = ('monitor', 'toilet', 'night_stand', 'desk', 'table', 'bed', 'bathtub', 'sofa', 'chair', 'dresser')
-    # calculate embedding statistics
-    for out_folder in out_folders:
-        print(out_folder)
-        dist_pair_mat = 1 - torch.load(out_folder / "pair_mat.pth")
-        dist_pair_mat[torch.logical_and(dist_pair_mat > -1e5, dist_pair_mat < 1e-5)] = 0
-        labels = torch.load(out_folder / "labels.pth")
-        proj_embedding = TSNE(perplexity=50, init="random", metric="precomputed").fit_transform(
-            dist_pair_mat.numpy())
-        # labeled scatter plot
-        fig, ax = plt.subplots()
-        for label in torch.unique(labels):
-            is_label = label == labels
-            plt.scatter(proj_embedding[is_label, 0], 
-                        proj_embedding[is_label, 1],
-                        label=class_labels[int(label)], alpha=.5)
-        plt.legend()
 
-        plt.title("SINCERE Loss" if "new" in out_folder.name else "SINCERE Loss")
+    # ModelNet10 labels
+    class_labels = ('monitor', 'toilet', 'night_stand', 'desk', 'table',
+                    'bed', 'bathtub', 'sofa', 'chair', 'dresser')
+
+    for out_folder in out_folders:
+        print(f"[INFO] Processando: {out_folder}")
+
+        embeds = torch.load(out_folder / "embeds.pth")  # (N, D)
+        labels = torch.load(out_folder / "labels.pth")  # (N,)
+        labels = labels.numpy()
+
+        proj_embedding = TSNE(perplexity=50, init="random").fit_transform(embeds.numpy())
+
+        fig, ax = plt.subplots(figsize=(8, 6))
+        for label in sorted(set(labels)):
+            is_label = labels == label
+            ax.scatter(proj_embedding[is_label, 0], 
+                       proj_embedding[is_label, 1],
+                       label=class_labels[int(label)], alpha=0.6, s=10)
+
+        ax.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))  # legenda à direita
+        # plt.legend(loc='best', fontsize='small', markerscale=2)
+
+        ax.set_title(f"t-SNE - {out_folder.name}")
+        plt.tight_layout()
         plt.savefig(fig_folder / (out_folder.name + ".pdf"), bbox_inches='tight')
+        print(f"[INFO] Plot salvo em {fig_folder / (out_folder.name + '.pdf')}")
+
