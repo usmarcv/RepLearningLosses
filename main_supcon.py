@@ -106,8 +106,8 @@ def parse_option():
     if opt.data_folder is None:
         opt.data_folder = './datasets/'
 
-    opt.model_path = './save_{}/{}/{}_models'.format(time.strftime("%Y_%m_%d"), opt.method, opt.dataset)
-    opt.tb_path = './save_{}/{}/{}_tensorboard'.format(time.strftime("%Y_%m_%d"), opt.method, opt.dataset)
+    opt.model_path = './save/Contrastive/{}/{}_models'.format(opt.method, opt.dataset)
+    opt.tb_path = './save/Contrastive/{}/{}_tensorboard'.format(opt.method, opt.dataset)
 
     iterations = opt.lr_decay_epochs.split(',')
     opt.lr_decay_epochs = list([])

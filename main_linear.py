@@ -150,7 +150,7 @@ def parse_option():
     else:
         raise ValueError('dataset not supported: {}'.format(opt.dataset))
 
-    opt.model_path = './save/linear/{}_models'.format(opt.dataset)
+    opt.model_path = './save/Linear/{}_models'.format(opt.dataset)
     opt.save_folder = os.path.join(opt.model_path, opt.model_name)
     os.makedirs(opt.save_folder, exist_ok=True)
 
@@ -365,19 +365,20 @@ def validate(val_loader, model, classifier, criterion, opt):
             batch_time.update(time.time() - end)
             end = time.time()
 
-            # if idx % opt.print_freq == 0 or (idx + 1) == len(val_loader):
-            #     print('Valid: [{0}/{1}]\t'
-            #           'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-            #           'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-            #           'Acc@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
-            #            idx, len(val_loader), batch_time=batch_time,
-            #            loss=losses, top1=top1))
-    
-    print(f"\tValid Loss: {loss.avg:4f}")
-    print(f"\tValid Top 1 Accuracy: {top1.avg:.3f}")
-    print(f"\tValid Top 5 Accuracy: {top5.avg:.3f}")
-    # print('\t[INFO] * Average validation: Acc@1 {top1.avg:.3f} | Acc@5 {top5.avg:.3f}'.format(top1=top1, top5=top5))
-    
+            if (idx + 1) == len(val_loader):
+                 print('\tValid: [{0}/{1}]\t'
+                       'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                       'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                       'Acc@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
+                        idx, len(val_loader), batch_time=batch_time,
+                        loss=losses, top1=top1))
+
+    #print(f"\tValid Loss: {loss.val:4f}")
+    #print(f"\tValid Top 1 Accuracy: {top1.avg:.3f}")
+    #print(f"\tValid Top 5 Accuracy: {top5.avg:.3f}")
+
+    print('\t[INFO] * Average validation: Acc@1 {top1.avg:.3f} | Acc@5 {top5.avg:.3f}'.format(top1=top1, top5=top5))
+
     return losses.avg, top1.avg
 
 
@@ -463,6 +464,7 @@ def cache_outputs(val_loader, model, classifier, opt):
     torch.save(embeds, os.path.join(opt.save_folder, "embeds.pth"))
     torch.save(preds, os.path.join(opt.save_folder, "preds.pth"))
     torch.save(labels, os.path.join(opt.save_folder, "labels.pth"))
+
     return
 
 
