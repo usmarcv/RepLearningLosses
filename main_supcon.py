@@ -93,8 +93,8 @@ def parse_option():
                         choices=['holdout', 'cross-validation', 'contrastive-mode'],
                         help='Choose your training mode and set the csv file accordingly')
     
-    parser.add_argument('--train_file', type=str, default='Datasets/train_holdout_balanced.csv', help='csv file for training')
-    parser.add_argument('--val_file', type=str, default='Datasets/val_holdout_balanced.csv', help='csv file for validation')
+    parser.add_argument('--train_file', type=str, default=None, help='csv file for training')
+    parser.add_argument('--val_file', type=str, default=None, help='csv file for validation')
     parser.add_argument('--num_folds', type=int, default=None, help='Number of folds for cross-validation based on your csv file')
 
     opt = parser.parse_args()
