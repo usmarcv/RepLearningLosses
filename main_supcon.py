@@ -45,7 +45,7 @@ def parse_option():
     parser = argparse.ArgumentParser('Arguments for training...')
 
     parser.add_argument('--print_freq', type=int, default=50, help='print frequency')
-    parser.add_argument('--save_freq', type=int, default=25, help='save frequency')
+    parser.add_argument('--save_freq', type=int, default=50, help='save frequency')
     parser.add_argument('--batch_size', type=int, default=32, help='batch_size')
     parser.add_argument('--num_workers', type=int, default=8, help='num of workers to use')
     parser.add_argument('--epochs', type=int, default=100, help='number of training epochs')
@@ -64,14 +64,11 @@ def parse_option():
                                                                           'dino_vit_base_p_16', 'dino_vit_base_p_8',
                                                                           'dinov2_vit_small_p_14', 'dinov2_vit_base_p_14'], 
                         help='Choose your backbone')
-    #parser.add_argument('--n_cls', type=int, default=None, help='Number of classes for your dataset')
     parser.add_argument('--dataset', type=str, default='cifar10', 
                         choices=['cifar10', 'cifar100', 'imagenet100', 'imagenet', 'cifar2', 'aircraft', 'cars', 'path'], 
                         help='Dataset')
-    #parser.add_argument('--mean', type=str, help='mean of dataset in path in form of str tuple')
-    #parser.add_argument('--std', type=str, help='std of dataset in path in form of str tuple')
     parser.add_argument('--data_folder', type=str, default=None, help='path to custom dataset')
-    parser.add_argument('--size', type=int, default=32, help='size of images after resizing')
+    parser.add_argument('--size', type=int, default=224, help='size of images after resizing')
 
     # Contrastive method
     parser.add_argument('--method', type=str, default='SINCERE',
@@ -724,14 +721,57 @@ def train_folds(opt):
     print(f"[INFO] Standard Deviation of Validation Top-5 Accuracy across folds: {std_dev_accuracy5_val:.4f}")
 
 
+def train_contrastive(opt):
+
+    # Build data loader
+    train_loader, valid_loader = set_dataset(opt, contrast_trans=True, flag=opt.train_mode, fold=None)
+
+    # Build model with criterion loss
+    model, criterion = set_model(opt)
+
+    # Build optimizer
+    optimizer = set_optimizer(opt, model)
+
+    # Tensorboard, only for first process if multiple
+    if "device" not in opt or opt.device == 0:
+        logger = SummaryWriter(log_dir=opt.tb_folder)
+
+    # Training routine
+    print('\n[INFO] Training model with stage one...')
+    for epoch in range(1, opt.epochs + 1):
+       
+        adjust_learning_rate(opt, optimizer, epoch)
+
+        # Train for one epoch
+        time1 = time.time()
+        train(train_loader, model, criterion, optimizer, epoch, opt, logger)
+        time2 = time.time()
+        
+        # Use valid loader if available
+        if valid_loader is not None:
+            valid(train_loader, valid_loader, model, criterion, epoch, opt, logger) 
+        print('epoch {}, total time {:.2f}'.format(epoch, time2 - time1))
+
+        # Checkpoints
+        if epoch % opt.save_freq == 0:
+            save_file = os.path.join(
+                opt.save_folder, 'ckpt_epoch_{epoch}.pth'.format(epoch=epoch))
+            save_model(model, optimizer, opt, epoch, save_file)
+
+    # Save the last model
+    save_file = os.path.join(
+        opt.save_folder, 'last.pth')
+    save_model(model, optimizer, opt, opt.epochs, save_file)
+
+
 def main(opt):
     
     if opt.train_mode == 'holdout':
         train_holdout(opt)
     elif opt.train_mode == 'cross-validation':
         train_folds(opt)
-    # elif opt.train_mode == 'contrastive-mode':
-    #     train_holdout(opt)
+    elif opt.train_mode == 'contrastive-mode':
+        train_contrastive(opt)
     else:
         raise ValueError('[INFO] Flag for training mode not supported: {}'.format(opt.train_mode))
 
