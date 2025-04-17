@@ -7,6 +7,8 @@ save_only_selecteds/
 checkpoints/
 ModelNet10/
 Datasets/
+figures/
+*tensorboard/
 
 #chekpoints torch and tensorboard
 *.pth
