@@ -75,13 +75,14 @@ def parse_option():
 
 
     parser.add_argument('--root_path', type=str, default='', help='root path to dataset')
+    # We have used the cross-validation mode to search our hyperparameters
     parser.add_argument('--train_mode', type=str, default='holdout', 
                         choices=['holdout', 'cross-validation', 'contrastive-mode'],
                         help='Choose your training mode and set the csv file accordingly')
     
-    parser.add_argument('--train_file', type=str, default='Datasets/KFolds/SKF_TRAIN_Fold_1.csv', help='csv file for training')
-    parser.add_argument('--val_file', type=str, default='Datasets/KFolds/SKF_VAL_Fold_1.csv', help='csv file for validation')
-    parser.add_argument('--test_file', type=str, default='Datasets/test.csv', help='csv file for testing')
+    parser.add_argument('--train_file', type=str, default=None, help='csv file for training')
+    parser.add_argument('--val_file', type=str, default=None, help='csv file for validation')
+    parser.add_argument('--test_file', type=str, default=None, help='csv file for testing')
     parser.add_argument('--num_folds', type=int, default=None, help='Number of folds for cross-validation based on your csv file')
 
     opt = parser.parse_args()
@@ -510,6 +511,7 @@ def main():
     # save the last model
     save_file = os.path.join(
         opt.save_folder, 'last.pth')
+    
     save_model(model, optimizer, opt, opt.epochs, save_file)
     cache_outputs(test_loader, model, classifier, opt)
 
