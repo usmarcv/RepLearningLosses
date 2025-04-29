@@ -17,7 +17,8 @@ from util import AverageMeter, adjust_learning_rate, warmup_learning_rate, set_o
 #Networks
 from networks.pretrained_models import load_pretrained_model
 #Losses
-from losses import SupConLoss, MultiviewSINCERELoss, MultiviewEpsSupInfoNCELoss, InfoNCELoss
+from losses_supcon import SupConLoss
+from losses import MultiviewSINCERELoss, MultiviewEpsSupInfoNCELoss, InfoNCELoss
 #Dataset
 from torch.utils.data import DataLoader
 from torchvision import transforms
@@ -406,7 +407,7 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
             # loss is averaged across GPU-specific batches if using multiple GPUs, as in SupCon
             # see MoCo v3 for full batch size parallelization with torch's all_gather
             if opt.method == 'SINCERE' or opt.method == 'EpsSupInfoNCE' or opt.method == 'SupCon': #Supervised contrastive learning methods
-                loss = criterion(embeds, w)
+                loss = criterion(embeds, labels)
             elif opt.method == 'SimCLR' or opt.method == 'InfoNCE': #Self-supervised contrastive learning methods
                 loss = criterion(embeds)
             else:
