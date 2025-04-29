@@ -406,7 +406,7 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
             # loss is averaged across GPU-specific batches if using multiple GPUs, as in SupCon
             # see MoCo v3 for full batch size parallelization with torch's all_gather
             if opt.method == 'SINCERE' or opt.method == 'EpsSupInfoNCE' or opt.method == 'SupCon': #Supervised contrastive learning methods
-                loss = criterion(embeds, labels)
+                loss = criterion(embeds, w)
             elif opt.method == 'SimCLR' or opt.method == 'InfoNCE': #Self-supervised contrastive learning methods
                 loss = criterion(embeds)
             else:
@@ -451,8 +451,6 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
 
 def valid(train_loader, valid_loader, model, criterion, epoch, opt, logger):
     """validation"""
-
-    scaler = torch.amp.GradScaler('cuda')
 
     embedding_dim = {  
         'resnet50': 128,
@@ -499,8 +497,7 @@ def valid(train_loader, valid_loader, model, criterion, epoch, opt, logger):
 
             # forward
             with torch.no_grad():
-                with torch.amp.autocast(device_type='cuda', dtype=torch.float16):
-                    flat_embeds = model(images)
+                flat_embeds = model(images)
             # reshape from (2B, D) to (B, 2, D)
             embeds = torch.cat(
                 [aug.unsqueeze(1) for aug in torch.split(flat_embeds, [bsz, bsz], dim=0)], dim=1)
