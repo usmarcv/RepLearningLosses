@@ -44,18 +44,28 @@ def parse_option():
 
     parser = argparse.ArgumentParser('Arguments for training...')
 
-    parser.add_argument('--print_freq', type=int, default=50, help='print frequency')
-    parser.add_argument('--save_freq', type=int, default=50, help='save frequency')
-    parser.add_argument('--batch_size', type=int, default=32, help='batch_size')
-    parser.add_argument('--num_workers', type=int, default=8, help='num of workers to use')
-    parser.add_argument('--epochs', type=int, default=100, help='number of training epochs')
+    parser.add_argument('--print_freq', type=int, default=50, 
+                        help='print frequency')
+    parser.add_argument('--save_freq', type=int, default=50, 
+                        help='save frequency')
+    parser.add_argument('--batch_size', type=int, default=32, 
+                        help='batch_size')
+    parser.add_argument('--num_workers', type=int, default=8, 
+                        help='num of workers to use')
+    parser.add_argument('--epochs', type=int, default=100, 
+                        help='number of training epochs')
 
     # optimization
-    parser.add_argument('--learning_rate', type=float, default=0.0001, help='learning rate')
-    parser.add_argument('--lr_decay_epochs', type=str, default='20, 30, 40, 70', help='where to decay lr, can be a list')
-    parser.add_argument('--lr_decay_rate', type=float, default=0.1, help='decay rate for learning rate')
-    parser.add_argument('--weight_decay', type=float, default=1e-4, help='weight decay')
-    parser.add_argument('--momentum', type=float, default=0.9, help='momentum')
+    parser.add_argument('--learning_rate', type=float, default=0.0001, 
+                        help='learning rate')
+    parser.add_argument('--lr_decay_epochs', type=str, default='20, 30, 40, 70', 
+                        help='where to decay lr, can be a list')
+    parser.add_argument('--lr_decay_rate', type=float, default=0.1, 
+                        help='decay rate for learning rate')
+    parser.add_argument('--weight_decay', type=float, default=1e-4, 
+                        help='weight decay')
+    parser.add_argument('--momentum', type=float, default=0.9,
+                        help='momentum')
 
     # model dataset
     parser.add_argument('--model', type=str, default='resnet50', choices=['resnet50', 
@@ -88,14 +98,18 @@ def parse_option():
                         help='id for recording multiple runs')
     
     #Experimental Dataset Settings
-    parser.add_argument('--root_path', type=str, default='', help='root path to dataset')
+    parser.add_argument('--root_path', type=str, default='', 
+                        help='root path to dataset')
     parser.add_argument('--train_mode', type=str, default='holdout', 
                         choices=['holdout', 'cross-validation', 'contrastive-mode'],
                         help='Choose your training mode and set the csv file accordingly')
     
-    parser.add_argument('--train_file', type=str, default=None, help='csv file for training')
-    parser.add_argument('--val_file', type=str, default=None, help='csv file for validation')
-    parser.add_argument('--num_folds', type=int, default=None, help='Number of folds for cross-validation based on your csv file')
+    parser.add_argument('--train_file', type=str, default=None, 
+                        help='csv file for training')
+    parser.add_argument('--val_file', type=str, default=None, 
+                        help='csv file for validation')
+    parser.add_argument('--num_folds', type=int, default=None, 
+                        help='Number of folds for cross-validation based on your csv file')
 
     opt = parser.parse_args()
 
