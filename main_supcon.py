@@ -17,8 +17,7 @@ from util import AverageMeter, adjust_learning_rate, warmup_learning_rate, set_o
 #Networks
 from networks.pretrained_models import load_pretrained_model
 #Losses
-from losses_supcon import SupConLoss
-from losses import MultiviewSINCERELoss, MultiviewEpsSupInfoNCELoss, InfoNCELoss
+from losses import SupConLoss, MultiviewSINCERELoss, MultiviewEpsSupInfoNCELoss, InfoNCELoss
 #Dataset
 from torch.utils.data import DataLoader
 from torchvision import transforms
@@ -242,16 +241,14 @@ def set_dataset(opt, contrast_trans=True, flag:str=None, fold:int=None):
                               batch_size=opt.batch_size, 
                               shuffle=True, 
                               num_workers=opt.num_workers,
-                              pin_memory=True,
-                              drop_last=False)
+                              pin_memory=True)
     
   
         valid_loader = DataLoader(val_dataset, 
                                 batch_size=opt.batch_size, 
                                 shuffle=False, 
                                 num_workers=opt.num_workers,
-                                pin_memory=True,
-                                drop_last=False)
+                                pin_memory=True)
         
         print('[INFO] Training with holdout mode...')
 
