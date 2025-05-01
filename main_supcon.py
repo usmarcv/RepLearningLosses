@@ -460,6 +460,7 @@ def valid(train_loader, valid_loader, model, criterion, epoch, opt, logger):
     test_embeds = torch.empty((0, embedding_dim))
     test_labels = torch.empty((0,))
 
+    
     for i, loader in enumerate([train_loader, valid_loader]):
         is_train = i == 0
         model.eval()
