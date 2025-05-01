@@ -316,17 +316,19 @@ def set_model(opt:str):
     if opt.model in __all_models:
         model = load_pretrained_model(opt.model)
 
-    #Set criterion 
+    #Set criterion
+    criterion = None
+ 
     if opt.method == 'SINCERE':
         # original implementation does not set base_temperature, but setting here to make
         # hyperparameters comparable between implementations
         criterion = MultiviewSINCERELoss(temperature=opt.temp)
     elif opt.method == 'SupCon':
-        criterion = SupConLoss(temperature=opt.temp)
+        criterion = SupConLoss(temperature=opt.temp, base_temperature=opt.temp)
     elif opt.method == 'EpsSupInfoNCE':
         criterion = MultiviewEpsSupInfoNCELoss(temperature=opt.temp)
     elif opt.method == 'SimCLR':
-        criterion = SupConLoss(temperature=opt.temp)
+        criterion = SupConLoss(temperature=opt.temp, base_temperature=opt.temp)
     elif opt.method == 'InfoNCE':
         criterion = InfoNCELoss(temperature=opt.temp) 
     else:
@@ -362,10 +364,14 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
     av_acc = AverageMeter()
     av_losses = AverageMeter()
 
+    #Amp
     scaler = torch.amp.GradScaler('cuda')
     
     end = time.time()
 
+    # change reshuffle split of data across GPUs
+    if "device" in opt:
+        train_loader.sampler.set_epoch(epoch)
     for idx, (image_aug_tuple, labels) in enumerate(train_loader):
         av_data_time.update(time.time() - end)
 
@@ -379,11 +385,6 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
                 labels = labels.to(opt.device, non_blocking=True)
         bsz = labels.shape[0]
 
-        # print('\n[INFO] idx: ', idx)
-        # print('[INFO] batched images and labels...')
-        # get_free_memory()
-        # print()
-
         # warm-up learning rate
         warmup_learning_rate(opt, epoch, idx, len(train_loader), optimizer)
 
@@ -391,18 +392,11 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
 
         # forward
         with torch.amp.autocast(device_type='cuda', dtype=torch.float16):
-            # print('\n[INFO] images and labels to model...')
-            # get_free_memory()
-            # print()
 
             flat_embeds = model(images)
             # reshape from (2B, D) to (B, 2, D)
             feat1, feat2 = torch.split(flat_embeds, [bsz, bsz], dim=0)
             embeds = torch.cat([feat1.unsqueeze(1), feat2.unsqueeze(1)], dim=1)
-            # print('\n[INFO] idx: ', idx)
-            # print('[INFO] images and labels to MODEL...')
-            # get_free_memory()
-            # print()
             # compute losses
             # loss is averaged across GPU-specific batches if using multiple GPUs, as in SupCon
             # see MoCo v3 for full batch size parallelization with torch's all_gather
@@ -481,8 +475,8 @@ def valid(train_loader, valid_loader, model, criterion, epoch, opt, logger):
 
         end = time.time()
         # # # change reshuffle split of data across GPUs
-        # if "device" in opt:
-        #     loader.sampler.set_epoch(epoch)
+        if "device" in opt:
+            loader.sampler.set_epoch(epoch)
         for idx, (image_aug_tuple, labels) in enumerate(loader):
             av_data_time.update(time.time() - end)
             
@@ -572,8 +566,7 @@ def valid(train_loader, valid_loader, model, criterion, epoch, opt, logger):
 #     #valid(train_loader, test_loader, model, criterion, 0, opt, logger=None)
 
 
-#CONFIGURAR main para multiplas opcoes de train mode
-
+#Holdout mode
 def train_holdout(opt):
 
     # Build data loader
@@ -620,6 +613,7 @@ def train_holdout(opt):
     save_model(model, optimizer, opt, opt.epochs, save_file)
 
 
+#Cross-validation mode
 def train_folds(opt):
 
     accs_train = [] 
@@ -733,6 +727,7 @@ def train_folds(opt):
     print(f"[INFO] Standard Deviation of Validation Top-5 Accuracy across folds: {std_dev_accuracy5_val:.4f}")
 
 
+#Contrastive mode
 def train_contrastive(opt):
 
     # Build data loader
