@@ -76,9 +76,9 @@ def parse_option():
 
     parser.add_argument('--root_path', type=str, default='', help='root path to dataset')
     # We have used the cross-validation mode to search our hyperparameters
-    parser.add_argument('--train_mode', type=str, default='holdout', 
-                        choices=['holdout', 'cross-validation', 'contrastive-mode'],
-                        help='Choose your training mode and set the csv file accordingly')
+    # parser.add_argument('--train_mode', type=str, default='holdout', 
+    #                     choices=['holdout', 'cross-validation', 'contrastive-mode'],
+    #                     help='Choose your training mode and set the csv file accordingly')
     
     parser.add_argument('--train_file', type=str, default=None, help='csv file for training')
     parser.add_argument('--val_file', type=str, default=None, help='csv file for validation')
@@ -480,7 +480,7 @@ def main():
     opt = parse_option()
 
     # build data loader
-    train_loader, val_loader, test_loader = set_loader(opt, contrast_trans=False, for_test=True)
+    train_loader, _, test_loader = set_loader(opt, contrast_trans=False, for_test=True)
 
     # build model and criterion
     model, classifier, criterion = set_model(opt)
