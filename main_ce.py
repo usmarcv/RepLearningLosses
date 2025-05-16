@@ -16,7 +16,7 @@ from torchvision import transforms, datasets
 
 import sampler
 from util import AverageMeter, DoubleTransform, SubsetWithTargets, TwoCropTransform, CustomDatasetFromCSV
-from util import adjust_learning_rate, warmup_learning_rate, accuracy, set_optimizer, save_model
+from util import adjust_learning_rate, warmup_learning_rate, accuracy, set_optimizer, save_model, fix_random_seeds
 
 
 import networks.vit as vits
@@ -76,8 +76,7 @@ def parse_option():
     # parser.add_argument('--syncBN', action='store_true', help='using synchronized batch normalization')
     parser.add_argument('--warm', action='store_true', help='warm-up for large batch training')
     parser.add_argument('--trial', type=str, default='0',  help='id for recording multiple runs')
-
-
+    parser.add_argument('--seed', default=31, type=int, help='Random seed')
 
     opt = parser.parse_args()
 
@@ -357,6 +356,9 @@ def set_model(opt:str):
 
 def train(train_loader, model, criterion, optimizer, epoch, opt):
     """one epoch training"""
+
+    fix_random_seeds(seed=opt.seed)
+
     model.train()
 
     batch_time = AverageMeter()

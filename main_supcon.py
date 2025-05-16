@@ -13,7 +13,8 @@ from torch.utils.tensorboard import SummaryWriter
 #Metrics
 from contrast_acc import contrastive_acc, test_contrastive_acc, test_contrastive_acc_knn
 #Utils
-from util import AverageMeter, adjust_learning_rate, warmup_learning_rate, set_optimizer, save_model, TwoCropTransform, CustomDatasetFromCSV
+from util import adjust_learning_rate, warmup_learning_rate, set_optimizer, save_model, fix_random_seeds
+from util import AverageMeter, TwoCropTransform, CustomDatasetFromCSV
 #Networks
 from networks.pretrained_models import load_pretrained_model
 #Losses
@@ -27,17 +28,6 @@ __all_models = ['resnet50',
                 'vit_small', 'vit_base', 
                 'dino_vit_small_p_16', 'dino_vit_small_p_8', 'dino_vit_base_p_16', 'dino_vit_base_p_8',
                 'dinov2_vit_small_p_14', 'dinov2_vit_base_p_14']
-
-
-def get_free_memory():
-    """Get free memory in MB"""
-    if torch.cuda.is_available():
-        device = torch.device('cuda:0')
-        free, total = torch.cuda.mem_get_info(device)
-        mem_used_MB = (total - free) / 1024 ** 2
-        
-        print(f"Free memory: {free / 1024 ** 2:.2f} MB")
-        print(f"Used memory: {mem_used_MB}MB")
 
 
 def parse_option():
@@ -110,6 +100,7 @@ def parse_option():
                         help='csv file for validation')
     parser.add_argument('--num_folds', type=int, default=None, 
                         help='Number of folds for cross-validation based on your csv file')
+    parser.add_argument('--seed', default=31, type=int, help='Random seed')
 
     opt = parser.parse_args()
 
@@ -351,6 +342,9 @@ def set_model(opt:str):
 
 def train(train_loader, model, criterion, optimizer, epoch, opt, logger):
     """one epoch training"""
+
+    #Set seeds
+    fix_random_seeds(seed=opt.seed)
     
     #Set model to train mode
     model.train()

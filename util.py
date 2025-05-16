@@ -145,6 +145,16 @@ def save_model(model, optimizer, opt, epoch, save_file):
     del state
 
 
+#Based on: https://github.com/facebookresearch/dino/blob/main/utils.py#L215
+def fix_random_seeds(seed=31):
+    """
+    Fix random seeds.
+    """
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+
+
 #Based on: https://github.com/eriksonJAguiar/RADAR_MIX/blob/main/utils/utils.py#L530
 class CustomDatasetFromCSV(Dataset):
     """
@@ -194,4 +204,3 @@ class CustomDatasetFromCSV(Dataset):
             X = self.tf_image(X)
                 
         return X, y
-    

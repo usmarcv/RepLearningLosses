@@ -12,7 +12,7 @@ import torch.backends.cudnn as cudnn
 
 from main_ce import set_loader
 from util import AverageMeter
-from util import adjust_learning_rate, warmup_learning_rate, accuracy, save_model, set_optimizer
+from util import adjust_learning_rate, warmup_learning_rate, accuracy, save_model, set_optimizer, fix_random_seeds
 from networks.resnet_big import SupConResNet, LinearClassifier
 import networks.vit as vits
 # from networks.dino_models import load_dino_model
@@ -84,6 +84,7 @@ def parse_option():
     parser.add_argument('--val_file', type=str, default=None, help='csv file for validation')
     parser.add_argument('--test_file', type=str, default=None, help='csv file for testing')
     parser.add_argument('--num_folds', type=int, default=None, help='Number of folds for cross-validation based on your csv file')
+    parser.add_argument('--seed', default=31, type=int, help='Random seed')
 
     opt = parser.parse_args()
 
@@ -279,6 +280,9 @@ def set_model(opt:str):
 
 def train(train_loader, model, classifier, criterion, optimizer, epoch, opt):
     """one epoch training"""
+
+    fix_random_seeds(seed=opt.seed)
+    
     model.eval()
     classifier.train()
 
