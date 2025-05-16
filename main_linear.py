@@ -502,10 +502,10 @@ def main():
             epoch, time2 - time1, acc))
 
         # Eval for one epoch
-        if val_loader is not None:
-            loss, val_acc = validate(val_loader, model, classifier, criterion, opt)
-            if val_acc > best_acc:
-                best_acc = val_acc
+        # if val_loader is not None:
+        #     loss, val_acc = validate(val_loader, model, classifier, criterion, opt)
+        #     if val_acc > best_acc:
+        #         best_acc = val_acc
         # Print final accuracy for the test set evaluation run
         if test_loader is not None and epoch == opt.epochs:
             test(test_loader, model, classifier, criterion, opt)
