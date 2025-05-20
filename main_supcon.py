@@ -564,9 +564,6 @@ def train_holdout(opt):
     # Build data loader
     train_loader, valid_loader = set_dataset(opt, contrast_trans=True, flag=opt.train_mode, fold=None)
 
-    print(f"\tSize from train_loader: {len(train_loader)} batches")
-    print(f"\tSize from val_loader: {len(valid_loader)} batches")
-
     # Build model with criterion loss
     model, criterion = set_model(opt)
 

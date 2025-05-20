@@ -28,7 +28,7 @@ def parse_option():
     parser = argparse.ArgumentParser('Argument for training')
 
     parser.add_argument('--print_freq', type=int, default=50, help='print frequency')
-    parser.add_argument('--save_freq', type=int, default=25, help='save frequency')
+    parser.add_argument('--save_freq', type=int, default=50, help='save frequency')
     parser.add_argument('--batch_size', type=int, default=32, help='batch_size')
     parser.add_argument('--num_workers', type=int, default=8, help='num of workers to use')
     parser.add_argument('--epochs', type=int, default=100, help='number of training epochs')
@@ -47,15 +47,6 @@ def parse_option():
     parser.add_argument('--dataset', type=str, default='cifar10',
                         choices=['cifar10', 'cifar100', 'imagenet100', 'imagenet', 'path'],
                         help='dataset')
-
-    # parser.add_argument('--valid_split', type=float, default=0,
-    #                     help="proportion of train data to use for validation set")
-    # parser.add_argument('--mean', type=str,
-    #                     help='mean of dataset in path in form of str tuple')
-    # parser.add_argument('--std', type=str,
-    #                     help='std of dataset in path in form of str tuple')
-    # parser.add_argument('--data_folder', type=str,
-    #                     default=None, help='path to custom dataset')
     parser.add_argument('--size', type=int, default=32,
                         help='size of images after resizing')
     
@@ -83,14 +74,7 @@ def parse_option():
 
     # check if dataset is path that passed required arguments
     if opt.dataset == 'path':
-        #opt.data_folder is not None
-        # opt.mean is not None
-        # opt.std is not None
         opt.n_cls is not None
-
-    # set the path according to the environment
-    # if opt.data_folder is None:
-    #     opt.data_folder = './datasets/'
 
     opt.model_path = './save/CE/{}_models'.format(opt.dataset)
     opt.tb_path = './save/CE/{}_tensorboard'.format(opt.dataset)
@@ -542,11 +526,16 @@ def cache_outputs(val_loader, model, opt):
 
 
 def main():
+
     best_acc = 0
+    
     opt = parse_option()
 
     # build data loader
-    train_loader, val_loader, test_loader = set_loader(opt, contrast_trans=False, for_test=True)
+    if opt.val_file is None:
+        train_loader, _, test_loader = set_loader(opt, contrast_trans=False, for_test=True)
+    else:
+        train_loader, val_loader, test_loader = set_loader(opt, contrast_trans=False, for_test=True)
 
     # build model and criterion
     model, criterion = set_model(opt)
@@ -558,6 +547,7 @@ def main():
     logger = tb_logger.Logger(logdir=opt.tb_folder, flush_secs=2)
 
     # training routine
+    print('\n[INFO] Training model with cross-entropy loss...')
     for epoch in range(1, opt.epochs + 1):
         adjust_learning_rate(opt, optimizer, epoch)
 
@@ -565,7 +555,8 @@ def main():
         time1 = time.time()
         loss, train_acc = train(train_loader, model, criterion, optimizer, epoch, opt)
         time2 = time.time()
-        print('epoch {}, total time {:.2f}'.format(epoch, time2 - time1))
+        print('Train epoch {}, total time {:.2f}, accuracy:{:.2f}'.format(
+            epoch, time2 - time1, train_acc))
 
         # tensorboard logger
         logger.log_value('train_loss', loss, epoch)
@@ -573,9 +564,10 @@ def main():
         logger.log_value('learning_rate', optimizer.param_groups[0]['lr'], epoch)
 
         # evaluation
-        loss, val_acc = validate(val_loader, model, criterion, opt)
-        logger.log_value('val_loss', loss, epoch)
-        logger.log_value('val_acc', val_acc, epoch)   
+        if val_loader is not None:
+            loss, val_acc = validate(val_loader, model, criterion, opt)
+            logger.log_value('val_loss', loss, epoch)
+            logger.log_value('val_acc', val_acc, epoch)   
 
         if val_acc > best_acc:
             best_acc = val_acc
@@ -587,9 +579,8 @@ def main():
 
         # testing
         if test_loader is not None and epoch == opt.epochs:
-            loss, val_acc = test(test_loader, model, criterion, opt)
-            # logger.log_value('test_loss', loss, epoch)
-            # logger.log_value('test_acc', val_acc, epoch)
+            test(test_loader, model, criterion, opt)
+         
 
     # save the last model
     save_file = os.path.join(
