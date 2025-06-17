@@ -204,3 +204,25 @@ class CustomDatasetFromCSV(Dataset):
             X = self.tf_image(X)
                 
         return X, y
+
+
+def load_checkpoint(checkpoint_path, model, optimizer=None):
+
+    print(f'[INFO] Loading checkpoint from {checkpoint_path}...')
+    checkpoint = torch.load(checkpoint_path, map_location="cpu")
+
+    # Recupera opções
+    opt = checkpoint['opt']
+
+    # Carrega pesos no modelo
+    model.load_state_dict(checkpoint['model'])
+
+    # Carrega otimizador se fornecido
+    if optimizer is not None and 'optimizer' in checkpoint:
+        optimizer.load_state_dict(checkpoint['optimizer'])
+
+    # Recupera época se disponível
+    epoch = checkpoint.get('epoch', None)
+
+    print('[INFO] Checkpoint restaurado com sucesso.')
+    return model, optimizer, opt, epoch
