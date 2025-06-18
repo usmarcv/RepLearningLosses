@@ -27,7 +27,7 @@ import numpy as np
 
 import util
 import networks.vit as vits
-from networks.resnet_big import SupCEResNet
+import networks.resnet_big as resnets
 # import networks.resnet_big as SupCEResNet
 # from util import extract_features
 
@@ -82,61 +82,6 @@ def config_qimname(cfg, i):
     return os.path.join(cfg['dir_images'], cfg['qimlist'][i] + cfg['qext'])
 
 
-# @torch.no_grad()
-# def extract_features(model, data_loader, use_cuda=True, multiscale=False):
-#     metric_logger = util.MetricLogger(delimiter="  ")
-#     features = None
-#     for samples, index in metric_logger.log_every(data_loader, 10):
-#         samples = samples.cuda(non_blocking=True)
-#         index = index.cuda(non_blocking=True)
-#         if multiscale:
-#             feats = util.multi_scale(samples, model)
-#         else:
-#             feats = model(samples).clone()
-
-#         # init storage feature matrix
-#         # if dist.get_rank() == 0 and features is None:
-#         #     features = torch.zeros(len(data_loader.dataset), feats.shape[-1])
-#         #     if use_cuda:
-#         #         features = features.cuda(non_blocking=True)
-#         #     print(f"Storing features into tensor of shape {features.shape}")
-
-
-#         if features is None:
-#             features = torch.zeros(len(data_loader.dataset), feats.shape[-1])
-#         if use_cuda:
-#             features = features.cuda(non_blocking=True)
-#         print(f"Storing features into tensor of shape {features.shape}")
-
-#         # get indexes from all processes
-#         y_all = torch.empty(dist.get_world_size(), index.size(0), dtype=index.dtype, device=index.device)
-#         y_l = list(y_all.unbind(0))
-#         y_all_reduce = torch.distributed.all_gather(y_l, index, async_op=True)
-#         y_all_reduce.wait()
-#         index_all = torch.cat(y_l)
-
-#         # share features between processes
-#         feats_all = torch.empty(
-#             dist.get_world_size(),
-#             feats.size(0),
-#             feats.size(1),
-#             dtype=feats.dtype,
-#             device=feats.device,
-#         )
-#         output_l = list(feats_all.unbind(0))
-#         output_all_reduce = torch.distributed.all_gather(output_l, feats, async_op=True)
-#         output_all_reduce.wait()
-
-#         # update storage feature matrix
-#         if dist.get_rank() == 0:
-#             if use_cuda:
-#                 features.index_copy_(0, index_all, torch.cat(output_l))
-#             else:
-#                 features.index_copy_(0, index_all.cpu(), torch.cat(output_l).cpu())
-#     return features
-
-
-
 @torch.no_grad()
 def extract_features(model, data_loader, use_cuda=True, multiscale=False):
     metric_logger = util.MetricLogger(delimiter="  ")
@@ -164,45 +109,58 @@ def extract_features(model, data_loader, use_cuda=True, multiscale=False):
     return features
 
 
+class ModelConcatenate(nn.Module):
+    def __init__(self, encoder, classifier):
+        super().__init__()
+        self.encoder = encoder
+        self.classifier = classifier
+
+    def forward(self, x):
+        features = self.encoder(x)
+        features = self.classifier(features)
+        return features
+
+
 def set_model(opt:str):
 
-    print('\n[INFO] Setting model and criterion with linear classifier...')
-
     # Set model
-    if opt.arch == "vit_small" or opt.arch == "dino_vit_small_p_16" or opt.arch == 'dino_vit_small_p_8': #não ta funcionando ainda
-        model = vits.SupCEViT(name=opt.arch, num_classes=opt.n_cls)
-    elif opt.arch == "vit_base" or opt.arch == "dino_vit_base_p_16" or opt.arch == 'dino_vit_base_p_8':
-        model = vits.SupCEViT(name=opt.arch, num_classes=opt.n_cls)
-    elif opt.arch == "resnet50": #If model is resnet
-        model = SupCEResNet(name=opt.arch, num_classes=opt.n_cls)
+    if opt.arch == "vit_small" or opt.arch == "dino_vit_small_p_16":
+        encoder = vits.SupConViT(name=opt.arch, feat_dim=384)
+        classifier = vits.LinearClassifierViT(name=opt.arch, num_classes=opt.n_cls)
+    elif opt.arch == "vit_base" or opt.arch == "dino_vit_base_p_16":
+        encoder = vits.SupConViT(name=opt.arch, feat_dim=768)
+        classifier = vits.LinearClassifierViT(name=opt.arch, num_classes=opt.n_cls)
+    elif opt.arch == "resnet50": 
+        encoder = resnets.SupConResNet(name=opt.arch)
+        classifier = resnets.LinearClassifier(name=opt.arch, num_classes=opt.n_cls)
     else:
         raise ValueError('Model not supported: {}'.format(opt.arch))
     
 
-    ckpt = torch.load(opt.pretrained_weights, map_location='cpu', weights_only=False)["model"]
-    # state_dict = ckpt['model']
-
     if torch.cuda.is_available():
         if torch.cuda.device_count() > 1:
-            model = torch.nn.DataParallel(model)
-        model = model.cuda()
-        cudnn.benchmark = True
-
-
-    model.load_state_dict(ckpt, strict=False)
-    # model.load_state_dict(state_dict)
-    # model.eval()
-
+            encoder = torch.nn.DataParallel(encoder)
+        encoder = encoder.cuda()
+        classifier = classifier.cuda()
+    
+    state_dict_model = torch.load(opt.pretrained_weights, map_location="cpu", weights_only=False)["model"]
+    state_dict_cls = torch.load(opt.pretrained_weights, map_location="cpu", weights_only=False)["classifier"]
+    encoder.load_state_dict(state_dict_model, strict=True)
+    classifier.load_state_dict(state_dict_cls, strict=True)
+    
+    # encoder.encoder.get_intermediate_layers = F
+    model = ModelConcatenate(encoder.encoder, classifier.fc)
+    
     return model
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Image Retrieval on revisited Paris and Oxford')
     parser.add_argument('--data_path', default='Datasets', type=str)
-    parser.add_argument('--dataset', default='roxford5k', type=str, choices=['roxford5k', 'rparis6k'])
+    parser.add_argument('--dataset', default='rparis6k', type=str, choices=['roxford5k', 'rparis6k'])
     parser.add_argument('--multiscale', default=False, type=util.bool_flag)
     parser.add_argument('--imsize', default=224, type=int, help='Image size')
     parser.add_argument('--pretrained_weights', default='', type=str, help="Path to pretrained weights to evaluate.")
-    parser.add_argument('--use_cuda', default=True, type=util.bool_flag)
+    parser.add_argument('--use_cuda', default=False, type=util.bool_flag)
     parser.add_argument('--arch', default='vit_small', type=str, help='Architecture')
     # parser.add_argument('--patch_size', default=16, type=int, help='Patch resolution of the model.')
     # parser.add_argument("--checkpoint_key", default="teacher", type=str,
@@ -210,7 +168,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_workers', default=10, type=int, help='Number of data loading workers per GPU.')
     # parser.add_argument("--dist_url", default="env://", type=str, help="""url used to set up
     #     distributed training; see https://pytorch.org/docs/stable/distributed.html""")
-    parser.add_argument("--local_rank", default=0, type=int, help="Please ignore and do not set this argument.")
+    # parser.add_argument("--local_rank", default=0, type=int, help="Please ignore and do not set this argument.")
     parser.add_argument('--n_cls', type=int, default=10, help='number of classes') #For CIFAR10
 
     args = parser.parse_args()
@@ -248,38 +206,7 @@ if __name__ == '__main__':
 
     print(f"train: {len(dataset_train)} imgs / query: {len(dataset_query)} imgs")
 
-    # # ============ building network ... ============
-    # if "vit" in args.arch:
-    #     model = vits.__dict__[args.arch](patch_size=args.patch_size, num_classes=0)
-    #     print(f"Model {args.arch} {args.patch_size}x{args.patch_size} built.")
-    # elif "xcit" in args.arch:
-    #     model = torch.hub.load('facebookresearch/xcit:main', args.arch, num_classes=0)
-    # elif args.arch in torchvision_models.__dict__.keys():
-    #     model = torchvision_models.__dict__[args.arch](num_classes=0)
-    # else:
-    #     print(f"Architecture {args.arch} non supported")
-    #     sys.exit(1)
-    # if args.use_cuda:
-    #     model.cuda()
-    # model.eval()
-
-    # # load pretrained weights
-    # if os.path.isfile(args.pretrained_weights):
-    #     state_dict = torch.load(args.pretrained_weights, map_location="cpu")
-    #     if args.checkpoint_key is not None and args.checkpoint_key in state_dict:
-    #         print(f"Take key {args.checkpoint_key} in provided checkpoint dict")
-    #         state_dict = state_dict[args.checkpoint_key]
-    #     # remove `module.` prefix
-    #     state_dict = {k.replace("module.", ""): v for k, v in state_dict.items()}
-    #     # remove `backbone.` prefix induced by multicrop wrapper
-    #     state_dict = {k.replace("backbone.", ""): v for k, v in state_dict.items()}
-    #     msg = model.load_state_dict(state_dict, strict=False)
-    #     print('Pretrained weights found at {} and loaded with msg: {}'.format(args.pretrained_weights, msg))
-    # elif args.arch == "vit_small" and args.patch_size == 16:
-    #     print("Since no pretrained weights have been provided, we load pretrained DINO weights on Google Landmark v2.")
-    #     model.load_state_dict(torch.hub.load_state_dict_from_url(url="https://dl.fbaipublicfiles.com/dino/dino_vitsmall16_googlelandmark_pretrain/dino_vitsmall16_googlelandmark_pretrain.pth"))
-    # else:
-    #     print("Warning: We use random weights.")
+    
 
 
     model = set_model(args)
@@ -287,52 +214,15 @@ if __name__ == '__main__':
     model.eval()
 
 
-    # ############################################################################
-    # # Step 1: extract features
-    # train_features = extract_features(model, data_loader_train, args.use_cuda, multiscale=args.multiscale)
-    # query_features = extract_features(model, data_loader_query, args.use_cuda, multiscale=args.multiscale)
-
-    # if util.get_rank() == 0:  # only rank 0 will work from now on
-    #     # normalize features
-    #     train_features = nn.functional.normalize(train_features, dim=1, p=2)
-    #     query_features = nn.functional.normalize(query_features, dim=1, p=2)
-
-    #     ############################################################################
-    #     # Step 2: similarity
-    #     sim = torch.mm(train_features, query_features.T)
-    #     ranks = torch.argsort(-sim, dim=0).cpu().numpy()
-
-    #     ############################################################################
-    #     # Step 3: evaluate
-    #     gnd = dataset_train.cfg['gnd']
-    #     # evaluate ranks
-    #     ks = [1, 5, 10]
-    #     # search for easy & hard
-    #     gnd_t = []
-    #     for i in range(len(gnd)):
-    #         g = {}
-    #         g['ok'] = np.concatenate([gnd[i]['easy'], gnd[i]['hard']])
-    #         g['junk'] = np.concatenate([gnd[i]['junk']])
-    #         gnd_t.append(g)
-    #     mapM, apsM, mprM, prsM = util.compute_map(ranks, gnd_t, ks)
-    #     # search for hard
-    #     gnd_t = []
-    #     for i in range(len(gnd)):
-    #         g = {}
-    #         g['ok'] = np.concatenate([gnd[i]['hard']])
-    #         g['junk'] = np.concatenate([gnd[i]['junk'], gnd[i]['easy']])
-    #         gnd_t.append(g)
-    #     mapH, apsH, mprH, prsH = util.compute_map(ranks, gnd_t, ks)
-    #     print('>> {}: mAP M: {}, H: {}'.format(args.dataset, np.around(mapM*100, decimals=2), np.around(mapH*100, decimals=2)))
-    #     print('>> {}: mP@k{} M: {}, H: {}'.format(args.dataset, np.array(ks), np.around(mprM*100, decimals=2), np.around(mprH*100, decimals=2)))
-    # # dist.barrier()
-
+    # ============ extract features ... ============
     train_features = extract_features(model, data_loader_train, args.use_cuda, multiscale=args.multiscale)
     query_features = extract_features(model, data_loader_query, args.use_cuda, multiscale=args.multiscale)
 
+    # Normalize features
     train_features = nn.functional.normalize(train_features, dim=1, p=2)
     query_features = nn.functional.normalize(query_features, dim=1, p=2)
 
+    # ============ compute similarity and ranks ... ============
     sim = torch.mm(train_features, query_features.T)
     ranks = torch.argsort(-sim, dim=0).cpu().numpy()
 
@@ -340,14 +230,19 @@ if __name__ == '__main__':
     ks = [1, 5, 10]
     gnd_t = []
     for i in range(len(gnd)):
-        g = {'ok': np.concatenate([gnd[i]['easy'], gnd[i]['hard']]), 'junk': np.concatenate([gnd[i]['junk']])}
-        gnd_t.append(g)
+       g = {}
+       g['ok'] = np.concatenate([gnd[i]['easy'], gnd[i]['hard']])
+       g['junk'] = np.concatenate([gnd[i]['junk']])
+       gnd_t.append(g)
     mapM, apsM, mprM, prsM = util.compute_map(ranks, gnd_t, ks)
 
     gnd_t = []
     for i in range(len(gnd)):
-        g = {'ok': np.concatenate([gnd[i]['hard']]), 'junk': np.concatenate([gnd[i]['junk'], gnd[i]['easy']])}
-        gnd_t.append(g)
+       g = {}
+       g['ok'] = np.concatenate([gnd[i]['hard']])
+       g['junk'] = np.concatenate([gnd[i]['junk'], gnd[i]['easy']])
+       gnd_t.append(g)
+
     mapH, apsH, mprH, prsH = util.compute_map(ranks, gnd_t, ks)
 
     print(f'>> {args.dataset}: mAP M: {np.around(mapM*100, decimals=2)}, H: {np.around(mapH*100, decimals=2)}')
