@@ -15,7 +15,7 @@ import torch.nn as nn
 import torch.backends.cudnn as cudnn
 
 from pathlib import Path
-from networks.resnet_big import SupCEResNet
+import networks.resnet_big as resnets
 import networks.vit as vits
 from main_ce import set_loader
 from util import AverageMeter, accuracy, fix_random_seeds, CustomDatasetFromCSV
@@ -181,70 +181,120 @@ def set_loader(opt:str, contrast_trans:bool=False, for_test:bool=True):
 
 
 
-def set_model(opt:str):
+# def set_model(opt:str):
 
-    print('\n[INFO] Setting model and criterion with linear classifier...')
+#     print('\n[INFO] Setting model and criterion with linear classifier...')
 
-    # model = None
-    # classifier = None
-    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#     # model = None
+#     # classifier = None
+#     # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+#     # Set model
+#     if opt.model == "vit_small" or opt.model == "dino_vit_small_p_16":
+#         model = vits.SupConViT(name=opt.model, feat_dim=384)
+#         classifier = vits.LinearClassifierViT(name=opt.model, num_classes=opt.n_cls)
+#     elif opt.model == "vit_base" or opt.model == "dino_vit_base_p_16":
+#         model = vits.SupConViT(name=opt.model, feat_dim=768)
+#         classifier = vits.LinearClassifierViT(name=opt.model, num_classes=opt.n_cls)
+#     elif opt.model == "resnet50": 
+#         model = resnets.SupConResNet(name=opt.model)
+#         classifier = resnets.LinearClassifier(name=opt.model, num_classes=opt.n_cls)
+#     else:
+#         raise ValueError('Model not supported: {}'.format(opt.model))
+    
+#     # model.eval()
+#     # classifier.eval()
+#     # Load the checkpoint if available (Basically, if we are using a pre-trained model or runned from Stage 1)
+#     # original_state_dict = copy.deepcopy(model.state_dict())
+    
+
+#     if torch.cuda.is_available():
+#         if torch.cuda.device_count() > 1:
+#             model = torch.nn.DataParallel(model)
+#         model = model.cuda()
+#         classifier = classifier.cuda()
+    
+#     state_dict_model = torch.load(opt.ckpt, map_location="cpu", weights_only=False)["model"]
+#     state_dict_cls = torch.load(opt.ckpt, map_location="cpu", weights_only=False)["classifier"]
+#     model.load_state_dict(state_dict_model, strict=True)
+#     classifier.load_state_dict(state_dict_cls, strict=True)
+#     # model.eval()
+
+#     # # Após carregar
+#     # new_state_dict = model.state_dict()
+
+#     # # Verificar se houve mudança
+#     # for key in original_state_dict:
+#     #     if not torch.equal(original_state_dict[key].cpu(), new_state_dict[key].cpu()):
+#     #         print(f"[OK] Parâmetro '{key}' foi atualizado.")
+#     #     else:
+#     #         print(f"[WARNING] Parâmetro '{key}' permaneceu igual.")
+
+#     # return model, classifier
+#     return model, classifier
+
+
+class ModelConcatenate(nn.Module):
+    def __init__(self, encoder, classifier):
+        super().__init__()
+        self.encoder = encoder
+        self.classifier = classifier
+
+    def forward(self, x):
+        features = self.encoder(x)
+        features = self.classifier(features)
+        return features
+
+
+def set_model(opt):
 
     # Set model
     if opt.model == "vit_small" or opt.model == "dino_vit_small_p_16":
-        # model = vits.SupCEViT(name=opt.model, feat_dim=384, num_classes=opt.n_cls)
-        model = vits.SupConViT(name=opt.model, feat_dim=384)
-        embed_dim = model.encoder.embed_dim 
-        classifier = vits.LinearClassifier(dim=embed_dim, num_labels=opt.n_cls)
+        encoder = vits.SupConViT(name=opt.model, feat_dim=384)
+        classifier = vits.LinearClassifierViT(name=opt.model, num_classes=opt.n_cls)
     elif opt.model == "vit_base" or opt.model == "dino_vit_base_p_16":
-        model = vits.SupCEViT(name=opt.model, feat_dim=768, num_classes=opt.n_cls)
+        encoder = vits.SupConViT(name=opt.model, feat_dim=768)
+        classifier = vits.LinearClassifierViT(name=opt.model, num_classes=opt.n_cls)
     elif opt.model == "resnet50": 
-        model = SupCEResNet(name=opt.model)
+        encoder = resnets.SupConResNet(name=opt.model)
+        classifier = resnets.LinearClassifier(name=opt.model, num_classes=opt.n_cls)
     else:
         raise ValueError('Model not supported: {}'.format(opt.model))
-    
-    # model.eval()
-    # classifier.eval()
-    # Load the checkpoint if available (Basically, if we are using a pre-trained model or runned from Stage 1)
-    # original_state_dict = copy.deepcopy(model.state_dict())
     
 
     if torch.cuda.is_available():
         if torch.cuda.device_count() > 1:
-            model = torch.nn.DataParallel(model)
-        model = model.cuda()
+            encoder = torch.nn.DataParallel(encoder)
+        encoder = encoder.cuda()
         classifier = classifier.cuda()
-        # cudnn.benchmark = True
     
-    state_dict = torch.load(opt.ckpt, map_location="cpu", weights_only=True)["model"]
-    model.load_state_dict(state_dict, strict=True)
-    # model.eval()
+    state_dict_model = torch.load(opt.ckpt, map_location="cpu", weights_only=False)["model"]
+    state_dict_cls = torch.load(opt.ckpt, map_location="cpu", weights_only=False)["classifier"]
+    encoder.load_state_dict(state_dict_model, strict=True)
+    classifier.load_state_dict(state_dict_cls, strict=True)
+    
+    model = ModelConcatenate(encoder.encoder, classifier.fc)
+    model.cuda()
+    
+    return model
 
-    # # Após carregar
-    # new_state_dict = model.state_dict()
-
-    # # Verificar se houve mudança
-    # for key in original_state_dict:
-    #     if not torch.equal(original_state_dict[key].cpu(), new_state_dict[key].cpu()):
-    #         print(f"[OK] Parâmetro '{key}' foi atualizado.")
-    #     else:
-    #         print(f"[WARNING] Parâmetro '{key}' permaneceu igual.")
-
-    # return model, classifier
-    return model, classifier
 
 
 @torch.no_grad()
-def test(test_loader, model, classifier, opt):
+def test(test_loader, model, opt):
+    
+    """testing inferences"""
 
-    """testing"""
+    fix_random_seeds(seed=opt.seed)
+
     model.eval()
-    classifier.eval()
+    # classifier.eval()
 
     batch_time = AverageMeter()
     top1 = AverageMeter()
     top5 = AverageMeter()
 
-    with torch.no_grad():
+    with torch.inference_mode():
         end = time.time()
         for idx, (images, labels) in enumerate(test_loader):
             images = images.float().cuda()
@@ -252,9 +302,8 @@ def test(test_loader, model, classifier, opt):
             bsz = labels.shape[0]
 
             # forward
-            output = classifier(model.encoder(images))
-
-            # outut = classifier(images)
+            # output = classifier(model.encoder(images))
+            output = model(images)
           
             if opt.n_cls > 4:
                 acc1, acc5 = accuracy(output, labels, topk=(1, 5))
@@ -272,39 +321,41 @@ def test(test_loader, model, classifier, opt):
                       f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                       f'Acc@1 {top1.val:.3f} ({top1.avg:.3f})')
 
-    print('\t[INFO] * Average testing: Acc@1 {top1.avg:.3f} | Acc@5 {top5.avg:.3f}'.format(top1=top1, top5=top5))
+    print('\n\t[INFO] * Average testing: Acc@1 {top1.avg:.3f} | Acc@5 {top5.avg:.3f}'.format(top1=top1, top5=top5))
     return  top1.avg
 
+# @torch.no_grad()
 # def test(test_loader, model, classifier, opt):
-# def test(test_loader, model, opt):
-#     print('\n[INFO] Start Testing...')
+    
+#     """testing inferences"""
+
+#     fix_random_seeds(seed=opt.seed)
+
+#     model.eval()
+#     classifier.eval()
 
 #     batch_time = AverageMeter()
 #     top1 = AverageMeter()
-
-#     if opt.n_cls > 4:
-#         top5 = AverageMeter()
-
-#     model.eval()
+#     top5 = AverageMeter()
 
 #     with torch.inference_mode():
-#     # with torch.no_grad():
 #         end = time.time()
 #         for idx, (images, labels) in enumerate(test_loader):
-#             images = images.float().cuda(non_blocking=True)
-#             labels = labels.cuda(non_blocking=True)
+#             images = images.float().cuda()
+#             labels = labels.cuda()
 #             bsz = labels.shape[0]
 
-#             output = model(images)
-
+#             # forward
+#             output = classifier(model.encoder(images))
+          
 #             if opt.n_cls > 4:
-#                 acc1, acc5 = accuracy(output, labels, topk=(1, min(opt.n_cls, 5)))
-#                 top1.update(acc1.item(), bsz)
-#                 top5.update(acc5.item(), bsz)
+#                 acc1, acc5 = accuracy(output, labels, topk=(1, 5))
+#                 top5.update(acc5[0], bsz)
 #             else:
 #                 acc1 = accuracy(output, labels, topk=(1,))[0]
-#                 top1.update(acc1.item(), bsz)
+#             top1.update(acc1[0], bsz)
 
+#             # measure elapsed time
 #             batch_time.update(time.time() - end)
 #             end = time.time()
 
@@ -313,13 +364,8 @@ def test(test_loader, model, classifier, opt):
 #                       f'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
 #                       f'Acc@1 {top1.val:.3f} ({top1.avg:.3f})')
 
-#     print(f'\n[INFO] Final Testing Accuracy:')
-#     print(f'   Acc@1: {top1.avg:.2f}%')
-#     if opt.n_cls > 4:
-#         print(f'   Acc@5: {top5.avg:.2f}%')
-#         return top1.avg, top5.avg
-#     else:
-#         return top1.avg, None
+#     print('\t[INFO] * Average testing: Acc@1 {top1.avg:.3f} | Acc@5 {top5.avg:.3f}'.format(top1=top1, top5=top5))
+#     return  top1.avg
 
 
 def main():
@@ -331,12 +377,12 @@ def main():
     # build data loader
     _, _, test_loader = set_loader(opt, contrast_trans=False, for_test=True)
 
+    model = set_model(opt)
     # model, classifier = set_model(opt)
-    model, classifier = set_model(opt)
+    
+    test(test_loader, model, opt)
     
     # test(test_loader, model, classifier, opt)
-    
-    test(test_loader, model, classifier, opt)
 
 
 if __name__ == '__main__':
