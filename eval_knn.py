@@ -256,7 +256,7 @@ from torchvision import models as torchvision_models
 
 import util
 import networks.vit as vits
-from networks.resnet_big import SupCEResNet, SupConResNet, LinearClassifier
+import networks.resnet_big as resnets
 from torchvision import transforms
 from torch.utils.data import DataLoader
 
@@ -292,88 +292,66 @@ from torch.utils.data import DataLoader
 #     return model
 
 
+class ModelConcatenate(nn.Module):
+    def __init__(self, encoder, classifier):
+        super().__init__()
+        self.encoder = encoder
+        self.classifier = classifier
+
+    def forward(self, x):
+        features = self.encoder(x)
+        # if isinstance(features, tuple): 
+        #     features = features[0]
+        return self.classifier(features)
+
+
 def set_model(opt:str):
 
-    print('\n[INFO] Setting model and criterion with linear classifier...')
-
     # Set model
-    if opt.arch == "vit_small" or opt.arch == "dino_vit_small_p_16" or opt.arch == 'dino_vit_small_p_8':#não ta funcionando ainda
-        model = vits.SupConViT(name=opt.arch, feat_dim=384)
-        # model = vits.SupCEViT(name=opt.model, num_classes=opt.n_cls)
+    if opt.arch == "vit_small" or opt.arch == "dino_vit_small_p_16":
+        encoder = vits.SupConViT(name=opt.arch, feat_dim=384)
         classifier = vits.LinearClassifierViT(name=opt.arch, num_classes=opt.n_cls)
-    elif opt.arch == "vit_base" or opt.arch == "dino_vit_base_p_16" or opt.arch == 'dino_vit_base_p_8':
-        model = vits.SupConViT(name=opt.arch, feat_dim=768)
+    elif opt.arch == "vit_base" or opt.arch == "dino_vit_base_p_16":
+        encoder = vits.SupConViT(name=opt.arch, feat_dim=768)
         classifier = vits.LinearClassifierViT(name=opt.arch, num_classes=opt.n_cls)
-    elif opt.arch == "resnet50": #If model is resnet
-        model = SupConResNet(name=opt.arch)
-        classifier = LinearClassifier(name=opt.arch, num_classes=opt.n_cls)
+    elif opt.arch == "resnet50": 
+        encoder = resnets.SupConResNet(name=opt.arch)
+        classifier = resnets.LinearClassifier(name=opt.arch, num_classes=opt.n_cls)
     else:
         raise ValueError('Model not supported: {}'.format(opt.arch))
     
 
-    # Load the checkpoint if available (Basically, if we are using a pre-trained model or runned from Stage 1)
-    ckpt = torch.load(opt.pretrained_weights, map_location='cpu', weights_only=False)
-    state_dict = ckpt['model']
-
     if torch.cuda.is_available():
         if torch.cuda.device_count() > 1:
-            model = torch.nn.DataParallel(model)
-        model = model.cuda()
+            encoder = torch.nn.DataParallel(encoder)
+        encoder = encoder.cuda()
         classifier = classifier.cuda()
-
-    model.load_state_dict(state_dict, strict=True)  # Use strict=False to allow for missing keys in the state_dict
-    # classifier.load_state_dict(state_dict)
     
-    return model, classifier
+    state_dict_model = torch.load(opt.pretrained_weights, map_location="cpu", weights_only=False)["model"]
+    state_dict_cls = torch.load(opt.pretrained_weights, map_location="cpu", weights_only=False)["classifier"]
+    encoder.load_state_dict(state_dict_model, strict=True)
+    classifier.load_state_dict(state_dict_cls, strict=True)
+    
+    model = ModelConcatenate(encoder.encoder, classifier.fc)
+    
+    return model
 
 
 def extract_feature_pipeline(args):
-    # transform = pth_transforms.Compose([
-    #     pth_transforms.Resize(256, interpolation=3),
-    #     pth_transforms.CenterCrop(224),
-    #     pth_transforms.ToTensor(),
-    #     pth_transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
-    # ])
-    # dataset_train = ReturnIndexDataset(os.path.join(args.data_path, "train"), transform=transform)
-    # dataset_val = ReturnIndexDataset(os.path.join(args.data_path, "val"), transform=transform)
-
-    # data_loader_train = torch.utils.data.DataLoader(
-    #     dataset_train,
-    #     batch_size=args.batch_size_per_gpu,
-    #     shuffle=False,
-    #     num_workers=args.num_workers,
-    #     pin_memory=True,
-    #     drop_last=False,
-    # )
-    # data_loader_val = torch.utils.data.DataLoader(
-    #     dataset_val,
-    #     batch_size=args.batch_size_per_gpu,
-    #     shuffle=False,
-    #     num_workers=args.num_workers,
-    #     pin_memory=True,
-    #     drop_last=False,
-    # )
-    # print(f"Data loaded with {len(dataset_train)} train and {len(dataset_val)} val imgs.")
-     #Normalization based on ImageNet dataset: https://stackoverflow.com/questions/58151507/why-pytorch-officially-use-mean-0-485-0-456-0-406-and-std-0-229-0-224-0-2
+   
+    #Normalization based on ImageNet dataset: https://stackoverflow.com/questions/58151507/why-pytorch-officially-use-mean-0-485-0-456-0-406-and-std-0-229-0-224-0-2
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
-    
-    train_transform = transforms.Compose([
-                transforms.RandomResizedCrop(size=args.size, scale=(0.2, 1.)),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                normalize,
-            ])
-    test_transform = transforms.Compose([
-                transforms.Resize([args.size, args.size]),
-                transforms.ToTensor(),
-                normalize,
-            ])
-    
+    transform = pth_transforms.Compose([
+        pth_transforms.Resize(args.size, interpolation=3),
+        pth_transforms.CenterCrop(224),
+        pth_transforms.ToTensor(),
+        pth_transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+    ])
     
     dataset_train = util.CustomDatasetFromCSV(
             path_root=args.root_path,
-            tf_image=train_transform,
+            tf_image=transform,
             csv_name=args.train_file,
             val_fold=None,
             train=True
@@ -381,7 +359,7 @@ def extract_feature_pipeline(args):
     
     dataset_val = util.CustomDatasetFromCSV(
             path_root=args.root_path,
-            tf_image=test_transform,
+            tf_image=transform,
             csv_name=args.test_file,
             val_fold=None,
             train=False
@@ -389,7 +367,7 @@ def extract_feature_pipeline(args):
 
     data_loader_train = DataLoader(dataset_train, 
                                 batch_size=args.batch_size_per_gpu,
-                                shuffle=False,
+                                shuffle=True,
                                 num_workers=args.num_workers,
                                 pin_memory=True,
                                 drop_last=False
@@ -405,33 +383,13 @@ def extract_feature_pipeline(args):
                                 )
 
 
-    # data_loader_train, _, data_loader_val = set_loader(args)
+   
+    
+    
+    model = set_model(args)
+    model.cuda()
+    model.eval()
 
-
-
-    # if "vit" in args.arch:
-    #     model = vits.__dict__[args.arch](patch_size=args.patch_size, num_classes=0)
-    # elif "xcit" in args.arch:
-    #     model = torch.hub.load('facebookresearch/xcit:main', args.arch, num_classes=0)
-    # elif args.arch in torchvision_models.__dict__.keys():
-    #     model = torchvision_models.__dict__[args.arch](num_classes=0)
-    #     model.fc = nn.Identity()
-    # else:
-    #     print(f"Architecture {args.arch} non supported")
-    #     sys.exit(1)
-
-    # model.cuda()
-    # utils.load_pretrained_weights(model, args.pretrained_weights, args.checkpoint_key, args.arch, args.patch_size)
-    # model.eval()
-
-
-    model,_ = set_model(args)
-    if torch.cuda.is_available():
-        model = model.cuda()
-        model.eval()
-    else:
-        model = model.cpu()
-        model.eval()
 
     print("Extracting features for train set...")
     train_features = extract_features(model, data_loader_train, args.use_cuda)
@@ -459,7 +417,7 @@ def extract_feature_pipeline(args):
 
 
 @torch.no_grad()
-def extract_features(model, data_loader, use_cuda=True, multiscale=False):
+def extract_features(model, data_loader, use_cuda=True, multiscale=True):
     features = None
     features = torch.zeros(len(data_loader.dataset), model(torch.randn(1, 3, 224, 224).cuda()).shape[-1])
     if use_cuda:
@@ -479,7 +437,8 @@ def knn_classifier(train_features, train_labels, test_features, test_labels, k, 
     train_features = train_features.t()
     num_test_images, num_chunks = test_labels.shape[0], 100
     imgs_per_chunk = num_test_images // num_chunks
-    retrieval_one_hot = torch.zeros(k, num_classes).to(train_features.device)
+    retrieval_one_hot = torch.zeros(k, num_classes).to(train_features)
+
     for idx in range(0, num_test_images, imgs_per_chunk):
 
         features = test_features[idx : min((idx + imgs_per_chunk), num_test_images), :]
@@ -527,7 +486,7 @@ def knn_classifier(train_features, train_labels, test_features, test_labels, k, 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Evaluation with weighted k-NN on ImageNet')
-    parser.add_argument('--batch_size_per_gpu', default=16, type=int, help='Per-GPU batch-size')
+    parser.add_argument('--batch_size_per_gpu', default=32, type=int, help='Per-GPU batch-size')
     parser.add_argument('--nb_knn', default=[10, 20, 100, 200], nargs='+', type=int,
         help='Number of NN to use. 20 is usually working the best.')
     parser.add_argument('--temperature', default=0.07, type=float,
@@ -556,7 +515,6 @@ if __name__ == '__main__':
     parser.add_argument('--root_path', type=str, default='', help='root path to dataset')
 
 
-
     args = parser.parse_args()
 
     cudnn.benchmark = True
@@ -577,5 +535,5 @@ if __name__ == '__main__':
 
     print("Features ready! Running k-NN classification.")
     for k in args.nb_knn:
-        top1, top5 = knn_classifier(train_features, train_labels, test_features, test_labels, k, args.temperature, num_classes=1000)
+        top1, top5 = knn_classifier(train_features, train_labels, test_features, test_labels, k, args.temperature, num_classes=args.n_cls)
         print(f"{k}-NN classifier result: Top1: {top1}, Top5: {top5}")
