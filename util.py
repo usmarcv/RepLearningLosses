@@ -129,13 +129,14 @@ def set_optimizer(opt, model):
     return optimizer
 
 
-def save_model(model, optimizer, opt, epoch, save_file):
+def save_model(model, classifier,optimizer, opt, epoch, save_file):
 
     print('\n[INFO] ==> Saving...')
 
     state = {
         'opt': opt,
         'model': model.state_dict(),
+        'classifier': classifier.state_dict() if classifier is not None else None,
         'optimizer': optimizer.state_dict(),
         'epoch': epoch,
     }
@@ -143,6 +144,28 @@ def save_model(model, optimizer, opt, epoch, save_file):
     torch.save(state, save_file)
 
     del state
+
+
+def load_checkpoint(checkpoint_path, model, optimizer=None):
+
+    print(f'[INFO] Loading checkpoint from {checkpoint_path}...')
+    checkpoint = torch.load(checkpoint_path, map_location="cpu")
+
+    # Recupera opções
+    opt = checkpoint['opt']
+
+    # Carrega pesos no modelo
+    model.load_state_dict(checkpoint['model'])
+
+    # Carrega otimizador se fornecido
+    if optimizer is not None and 'optimizer' in checkpoint:
+        optimizer.load_state_dict(checkpoint['optimizer'])
+
+    # Recupera época se disponível
+    epoch = checkpoint.get('epoch', None)
+
+    print('[INFO] Checkpoint restaurado com sucesso.')
+    return model, optimizer, opt, epoch
 
 
 #Based on: https://github.com/facebookresearch/dino/blob/main/utils.py#L215
@@ -206,23 +229,3 @@ class CustomDatasetFromCSV(Dataset):
         return X, y
 
 
-def load_checkpoint(checkpoint_path, model, optimizer=None):
-
-    print(f'[INFO] Loading checkpoint from {checkpoint_path}...')
-    checkpoint = torch.load(checkpoint_path, map_location="cpu")
-
-    # Recupera opções
-    opt = checkpoint['opt']
-
-    # Carrega pesos no modelo
-    model.load_state_dict(checkpoint['model'])
-
-    # Carrega otimizador se fornecido
-    if optimizer is not None and 'optimizer' in checkpoint:
-        optimizer.load_state_dict(checkpoint['optimizer'])
-
-    # Recupera época se disponível
-    epoch = checkpoint.get('epoch', None)
-
-    print('[INFO] Checkpoint restaurado com sucesso.')
-    return model, optimizer, opt, epoch

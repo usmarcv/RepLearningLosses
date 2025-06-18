@@ -486,11 +486,27 @@ def main():
     model, classifier, criterion = set_model(opt)
 
     # build optimizer
-    optimizer = set_optimizer(opt, classifier)
+    optimizer = set_optimizer(opt, classifier)\
+    
+    # ---------- RESTAURAR CHECKPOINT (opcional) ----------
+    start_epoch = 1
+    checkpoint_path = os.path.join(opt.ckpt, 'last.pth')
+    if os.path.exists(checkpoint_path):
+        print(f"[INFO] Checkpoint encontrado em {checkpoint_path}. Restaurando...")
+        checkpoint = torch.load(checkpoint_path, map_location=opt.device)
+
+        model.load_state_dict(checkpoint['model'])
+        classifier.load_state_dict(checkpoint['classifier'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        opt = checkpoint['opt']
+        start_epoch = checkpoint['epoch'] + 1  # Continua da próxima época
+        print(f"[INFO] Modelo restaurado. Continuando do epoch {start_epoch}")
+    # -----------------------------------------------------
 
     # training routine
     print('\n[INFO] Training model with stage two...')
-    for epoch in range(1, opt.epochs + 1):
+
+    for epoch in range(start_epoch, opt.epochs + 1):
         adjust_learning_rate(opt, optimizer, epoch)
 
         # train for one epoch
@@ -512,10 +528,9 @@ def main():
     print('best accuracy: {:.2f}'.format(best_acc))
 
     # save the last model
-    save_file = os.path.join(
-        opt.save_folder, 'last.pth')
+    save_file = os.path.join(opt.save_folder, 'last.pth')
     
-    save_model(model, optimizer, opt, opt.epochs, save_file)
+    save_model(model, classifier, optimizer, opt, opt.epochs, save_file)
     cache_outputs(test_loader, model, classifier, opt)
 
 
