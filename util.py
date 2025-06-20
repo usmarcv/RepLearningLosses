@@ -135,14 +135,14 @@ def set_optimizer(opt, model):
     return optimizer
 
 
-def save_model(model, classifier,optimizer, opt, epoch, save_file):
+def save_model(model, classifier, optimizer, opt, epoch, save_file):
 
     print('\n[INFO] ==> Saving...')
 
     state = {
         'opt': opt,
         'model': model.state_dict(),
-        'classifier': classifier.state_dict() if classifier is not None else None,
+        'classifier': classifier.state_dict() if classifier else None,
         'optimizer': optimizer.state_dict(),
         'epoch': epoch,
     }
@@ -150,28 +150,6 @@ def save_model(model, classifier,optimizer, opt, epoch, save_file):
     torch.save(state, save_file)
 
     del state
-
-
-def load_checkpoint(checkpoint_path, model, optimizer=None):
-
-    print(f'[INFO] Loading checkpoint from {checkpoint_path}...')
-    checkpoint = torch.load(checkpoint_path, map_location="cpu")
-
-    # Recupera opções
-    opt = checkpoint['opt']
-
-    # Carrega pesos no modelo
-    model.load_state_dict(checkpoint['model'])
-
-    # Carrega otimizador se fornecido
-    if optimizer is not None and 'optimizer' in checkpoint:
-        optimizer.load_state_dict(checkpoint['optimizer'])
-
-    # Recupera época se disponível
-    epoch = checkpoint.get('epoch', None)
-
-    print('[INFO] Checkpoint restaurado com sucesso.')
-    return model, optimizer, opt, epoch
 
 
 #Based on: https://github.com/facebookresearch/dino/blob/main/utils.py#L708
@@ -209,6 +187,22 @@ def compute_ap(ranks, nres):
 
     return ap
 
+
+def multi_scale(samples, model):
+    v = None
+    for s in [1, 1/2**(1/2), 1/2]:  # we use 3 different scales
+        if s == 1:
+            inp = samples.clone()
+        else:
+            inp = nn.functional.interpolate(samples, scale_factor=s, mode='bilinear', align_corners=False)
+        feats = model(inp).clone()
+        if v is None:
+            v = feats
+        else:
+            v += feats
+    v /= 3
+    v /= v.norm()
+    return v
 
 #Based on: https://github.com/facebookresearch/dino/blob/main/utils.py#L743
 def compute_map(ranks, gnd, kappas=[]):
@@ -252,8 +246,8 @@ def compute_map(ranks, gnd, kappas=[]):
         pos  = np.arange(ranks.shape[0])[np.in1d(ranks[:,i], qgnd)]
         junk = np.arange(ranks.shape[0])[np.in1d(ranks[:,i], qgndj)]
 
-        k = 0;
-        ij = 0;
+        k = 0
+        ij = 0
         if len(junk):
             # decrease positions of positives based on the number of
             # junk images appearing before them
@@ -504,7 +498,8 @@ class CustomDatasetFromCSV(Dataset):
                 self.data = self.data[self.data["fold"] != val_fold]  #Use all folds except the validation fold
             else:
                 self.data = self.data[self.data["fold"] == val_fold]  #Use only the validation fold
-        self.samples = list(zip(self.data['image_path'], self.data['label']))  
+        self.samples = list(zip(self.data['image_path'], 
+                                self.data['label'].map(self.cl_name)))  
 
     def __len__(self):
         return len(self.data)
@@ -523,3 +518,23 @@ class CustomDatasetFromCSV(Dataset):
                 
         return X, y
 
+def load_checkpoint(checkpoint_path, model, optimizer=None):
+
+    print(f'[INFO] Loading checkpoint from {checkpoint_path}...')
+    checkpoint = torch.load(checkpoint_path, map_location="cpu")
+
+    # Recupera opções
+    opt = checkpoint['opt']
+
+    # Carrega pesos no modelo
+    model.load_state_dict(checkpoint['model'])
+
+    # Carrega otimizador se fornecido
+    if optimizer is not None and 'optimizer' in checkpoint:
+        optimizer.load_state_dict(checkpoint['optimizer'])
+
+    # Recupera época se disponível
+    epoch = checkpoint.get('epoch', None)
+
+    print('[INFO] Checkpoint restaurado com sucesso.')
+    return model, optimizer, opt, epoch

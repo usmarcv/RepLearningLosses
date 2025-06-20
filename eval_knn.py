@@ -246,50 +246,23 @@
 import os
 import sys
 import argparse
-
+import numpy as np
+import pandas as pd
+from PIL import Image
 import torch
 from torch import nn
 import torch.backends.cudnn as cudnn
 from torchvision import datasets
 from torchvision import transforms as pth_transforms
 from torchvision import models as torchvision_models
-
+import ast
 import util
 import networks.vit as vits
 import networks.resnet_big as resnets
 from torchvision import transforms
 from torch.utils.data import DataLoader
+from torch.utils.data.dataset import Dataset
 
-# def set_model(opt:str):
-
-#     print('\n[INFO] Setting model and criterion with linear classifier...')
-
-#     # Set model
-#     if opt.arch == "vit_small" or opt.arch == "dino_vit_small_p_16" or opt.arch == 'dino_vit_small_p_8': #não ta funcionando ainda
-#         model = vits.SupCEViT(name=opt.arch, num_classes=opt.n_cls)
-#     elif opt.arch == "vit_base" or opt.arch == "dino_vit_base_p_16" or opt.arch == 'dino_vit_base_p_8':
-#         model = vits.SupCEViT(name=opt.arch, num_classes=opt.n_cls)
-#     elif opt.arch == "resnet50": #If model is resnet
-#         model = SupCEResNet(name=opt.arch, num_classes=opt.n_cls)
-#     else:
-#         raise ValueError('Model not supported: {}'.format(opt.arch))
-    
-
-#     ckpt = torch.load(opt.pretrained_weights, map_location='cpu', weights_only=False)["model"]
-#     # state_dict = ckpt['model']
-
-#     if torch.cuda.is_available():
-#         if torch.cuda.device_count() > 1:
-#             model = torch.nn.DataParallel(model)
-#         model = model.cuda()
-#         cudnn.benchmark = True
-
-
-#     model.load_state_dict(ckpt, strict=False)
-#     # model.load_state_dict(state_dict)
-#     # model.eval()
-
-#     return model
 
 
 class ModelConcatenate(nn.Module):
@@ -300,23 +273,21 @@ class ModelConcatenate(nn.Module):
 
     def forward(self, x):
         features = self.encoder(x)
-        # if isinstance(features, tuple): 
-        #     features = features[0]
-        return self.classifier(features)
+        return features
 
 
-def set_model(opt:str):
+def set_model(opt):
 
     # Set model
     if opt.arch == "vit_small" or opt.arch == "dino_vit_small_p_16":
         encoder = vits.SupConViT(name=opt.arch, feat_dim=384)
-        classifier = vits.LinearClassifierViT(name=opt.arch, num_classes=opt.n_cls)
+        # classifier = vits.LinearClassifierViT(name=opt.model, num_classes=opt.n_cls)
     elif opt.arch == "vit_base" or opt.arch == "dino_vit_base_p_16":
         encoder = vits.SupConViT(name=opt.arch, feat_dim=768)
-        classifier = vits.LinearClassifierViT(name=opt.arch, num_classes=opt.n_cls)
+        # classifier = vits.LinearClassifierViT(name=opt.model, num_classes=opt.n_cls)
     elif opt.arch == "resnet50": 
         encoder = resnets.SupConResNet(name=opt.arch)
-        classifier = resnets.LinearClassifier(name=opt.arch, num_classes=opt.n_cls)
+        # classifier = resnets.LinearClassifier(name=opt.model, num_classes=opt.n_cls)
     else:
         raise ValueError('Model not supported: {}'.format(opt.arch))
     
@@ -325,16 +296,56 @@ def set_model(opt:str):
         if torch.cuda.device_count() > 1:
             encoder = torch.nn.DataParallel(encoder)
         encoder = encoder.cuda()
-        classifier = classifier.cuda()
+        # classifier = classifier.cuda()
     
     state_dict_model = torch.load(opt.pretrained_weights, map_location="cpu", weights_only=False)["model"]
-    state_dict_cls = torch.load(opt.pretrained_weights, map_location="cpu", weights_only=False)["classifier"]
-    encoder.load_state_dict(state_dict_model, strict=True)
-    classifier.load_state_dict(state_dict_cls, strict=True)
+    # state_dict_cls = torch.load(opt.ckpt, map_location="cpu", weights_only=False)["classifier"]
+    encoder.load_state_dict(state_dict_model, strict=False)
+    # classifier.load_state_dict(state_dict_cls, strict=True)
     
-    model = ModelConcatenate(encoder.encoder, classifier.fc)
+    # model = ModelConcatenate(encoder.encoder, classifier.fc)
     
-    return model
+    return encoder
+
+
+
+
+
+class CustomDatasetFromCSVEvalKNN(Dataset):
+    def __init__(self, path_root, tf_image=None, csv_name=None, val_fold=None, train=True):
+        self.data = pd.read_csv(csv_name)
+        self.tf_image = tf_image
+        self.root = path_root
+
+        # Garante que label é string simples
+        self.data["label"] = self.data["label"].apply(lambda x: ast.literal_eval(x)[0] if "[" in str(x) else x)
+        
+        self.cl_name = {c: i for i, c in enumerate(np.unique(self.data["label"]))}
+
+        if val_fold is not None:
+            if train:
+                self.data = self.data[self.data["fold"] != val_fold]
+            else:
+                self.data = self.data[self.data["fold"] == val_fold]
+        
+        self.samples = list(zip(self.data['image_path'], 
+                                self.data['label'].map(self.cl_name)))
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+
+        x_path = os.path.join(self.root, self.data.iloc[idx, 0])
+        label = self.cl_name[self.data.iloc[idx, 1]]
+        X = Image.open(x_path).convert("RGB")
+        if self.tf_image:
+            X = self.tf_image(X)
+
+        return X, label, idx
+
 
 
 def extract_feature_pipeline(args):
@@ -349,7 +360,7 @@ def extract_feature_pipeline(args):
         pth_transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
     ])
     
-    dataset_train = util.CustomDatasetFromCSV(
+    dataset_train = CustomDatasetFromCSVEvalKNN(
             path_root=args.root_path,
             tf_image=transform,
             csv_name=args.train_file,
@@ -357,7 +368,7 @@ def extract_feature_pipeline(args):
             train=True
         )
     
-    dataset_val = util.CustomDatasetFromCSV(
+    dataset_val = CustomDatasetFromCSVEvalKNN(
             path_root=args.root_path,
             tf_image=transform,
             csv_name=args.test_file,
@@ -399,13 +410,8 @@ def extract_feature_pipeline(args):
     train_features = nn.functional.normalize(train_features, dim=1, p=2)
     test_features = nn.functional.normalize(test_features, dim=1, p=2)
 
-    # Crie o mapeamento label_str -> int
-    label_to_int_train = {label: idx for idx, label in enumerate(sorted(set(s[-1] for s in dataset_train.samples)))}
-    train_labels = torch.tensor([label_to_int_train[s[-1]] for s in dataset_train.samples]).long()
-    # train_labels = torch.tensor([s[-1] for s in dataset_train.samples]).long()
-
-    label_to_int_test = {label: idx for idx, label in enumerate(sorted(set(s[-1] for s in dataset_val.samples)))}
-    test_labels = torch.tensor([label_to_int_test[s[-1]] for s in dataset_val.samples]).long()
+    train_labels = torch.tensor([s[-1] for s in dataset_train.samples]).long()
+    test_labels = torch.tensor([s[-1] for s in dataset_val.samples]).long()
 
     if args.dump_features:
         torch.save(train_features.cpu(), os.path.join(args.dump_features, "trainfeat.pth"))
@@ -423,7 +429,9 @@ def extract_features(model, data_loader, use_cuda=True, multiscale=True):
     if use_cuda:
         features = features.cuda()
 
-    for samples, index in data_loader:
+    model.eval()
+    
+    for samples, labels, index in data_loader:
         samples = samples.cuda(non_blocking=True)
         index = index.cuda(non_blocking=True)
         feats = util.multi_scale(samples, model) if multiscale else model(samples).clone()
@@ -486,7 +494,7 @@ def knn_classifier(train_features, train_labels, test_features, test_labels, k, 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Evaluation with weighted k-NN on ImageNet')
-    parser.add_argument('--batch_size_per_gpu', default=32, type=int, help='Per-GPU batch-size')
+    parser.add_argument('--batch_size_per_gpu', default=128, type=int, help='Per-GPU batch-size')
     parser.add_argument('--nb_knn', default=[10, 20, 100, 200], nargs='+', type=int,
         help='Number of NN to use. 20 is usually working the best.')
     parser.add_argument('--temperature', default=0.07, type=float,
@@ -508,7 +516,7 @@ if __name__ == '__main__':
     # parser.add_argument("--local_rank", default=0, type=int, help="Please ignore and do not set this argument.")
     parser.add_argument('--data_path', default='', type=str)
     parser.add_argument('--n_cls', type=int, default=10, help='number of classes') #For CIFAR10
-    parser.add_argument('--size', type=int, default=224, help='size of images after resizing')
+    parser.add_argument('--size', type=int, default=256, help='size of images after resizing')
     parser.add_argument('--train_file', type=str, default=None, help='csv file for training')
     parser.add_argument('--val_file', type=str, default=None, help='csv file for validation')
     parser.add_argument('--test_file', type=str, default=None, help='csv file for testing')

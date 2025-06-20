@@ -27,7 +27,7 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import classification_report, precision_recall_fscore_support, average_precision_score
 import torch.nn.functional as F
 
-from networks.pretrained_models_cls_head import load_model_with_classification_head
+# from networks.pretrained_models_cls_head import load_model_with_classification_head
 
 import numpy as np
 from argparse import Namespace

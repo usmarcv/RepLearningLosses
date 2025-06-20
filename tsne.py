@@ -4,13 +4,13 @@ from sklearn.manifold import TSNE
 import torch
 
 if __name__ == "__main__":
-    out_folders = [Path("save_exp_subfolds/CE/path_models/SupCE_path_resnet50_lr_0.0001_decay_0.0001_bsz_128_trial_0_cosine")]
+    out_folders = [Path("save/Linear/path_models/path_vit_small_path_bsz_128_lr_0.0001_size_128/")]
     fig_folder = Path("figures/tsne")
     fig_folder.mkdir(exist_ok=True)
 
     # ModelNet10 labels
-    class_labels = ('monitor', 'toilet', 'night_stand', 'desk', 'table',
-                    'bed', 'bathtub', 'sofa', 'chair', 'dresser')
+    class_labels = ('bathtub', 'bed', 'chair', 'desk', 'dresser',
+                    'monitor', 'night_stand', 'sofa', 'table', 'toilet')
 
     for out_folder in out_folders:
         print(f"[INFO] Processando: {out_folder}")

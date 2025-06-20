@@ -6,7 +6,7 @@ import torch
 
 
 if __name__ == "__main__":
-    out_folders = [Path("save_exp_subfolds/linear/path_models/path_vit_small_SINCERE_bsz_128_lr_0.0001_size_224/"),
+    out_folders = [Path("save/Linear/path_models/path_vit_small_path_bsz_128_lr_0.0001_size_128/"),
                 #    Path("save/linear/cifar2_models/cifar2_lr_5.0_bsz_512_old/"),
                 #    Path("save/linear/cifar10_models/cifar10_lr_5.0_bsz_512_new/"),
                 #    Path("save/linear/cifar10_models/cifar10_lr_5.0_bsz_512_old/")
@@ -17,7 +17,8 @@ if __name__ == "__main__":
     for out_folder in out_folders:
         if "path" in out_folder.name:
     
-            class_labels = ('monitor', 'toilet', 'night_stand', 'desk', 'table', 'bed', 'bathtub', 'sofa', 'chair', 'dresser')
+            class_labels = ('bathtub', 'bed', 'chair', 'desk', 'dresser',
+                            'monitor', 'night_stand', 'sofa', 'table', 'toilet')
 
         else:
             # CIFAR-2 labels
@@ -35,7 +36,7 @@ if __name__ == "__main__":
                     cmap="Blues"
                 )
         
-        plt.title("SINCERE Loss")
+        # plt.title("SINCERE Loss")
         disp.ax_.set_xticklabels(disp.ax_.get_xticklabels(), rotation=45, ha="right")
         disp.figure_.savefig(fig_folder / (out_folder.name + ".pdf"), bbox_inches='tight')
         print(f"[INFO] Plot salvo em {fig_folder / (out_folder.name + '.pdf')}")

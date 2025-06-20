@@ -26,8 +26,7 @@ from torchvision import transforms
 
 __all_models = ['resnet50', 
                 'vit_small', 'vit_base', 
-                'dino_vit_small_p_16', 'dino_vit_small_p_8', 'dino_vit_base_p_16', 'dino_vit_base_p_8',
-                'dinov2_vit_small_p_14', 'dinov2_vit_base_p_14']
+                'dino_vit_small_p_16', 'dino_vit_small_p_8', 'dino_vit_base_p_16', 'dino_vit_base_p_8']
 
 
 def parse_option():
@@ -38,7 +37,7 @@ def parse_option():
                         help='print frequency')
     parser.add_argument('--save_freq', type=int, default=50, 
                         help='save frequency')
-    parser.add_argument('--batch_size', type=int, default=32, 
+    parser.add_argument('--batch_size', type=int, default=128, 
                         help='batch_size')
     parser.add_argument('--num_workers', type=int, default=8, 
                         help='num of workers to use')
@@ -61,12 +60,11 @@ def parse_option():
     parser.add_argument('--model', type=str, default='resnet50', choices=['resnet50', 
                                                                           'vit_small', 'vit_base',
                                                                           'dino_vit_small_p_16', 'dino_vit_small_p_8', 
-                                                                          'dino_vit_base_p_16', 'dino_vit_base_p_8',
-                                                                          'dinov2_vit_small_p_14', 'dinov2_vit_base_p_14'], 
+                                                                          'dino_vit_base_p_16', 'dino_vit_base_p_8'], 
                         help='Choose your backbone')
     parser.add_argument('--dataset', type=str, default='cifar10', 
-                        choices=['cifar10', 'cifar100', 'imagenet100', 'imagenet', 'cifar2', 'aircraft', 'cars', 'path'], 
-                        help='Dataset')
+                        choices=['cifar10', 'cifar100', 'path'], 
+                        help='Your dataset. Path option is your custom dataset with path.')
     parser.add_argument('--data_folder', type=str, default=None, help='path to custom dataset')
     parser.add_argument('--size', type=int, default=224, help='size of images after resizing')
 
@@ -100,7 +98,8 @@ def parse_option():
                         help='csv file for validation')
     parser.add_argument('--num_folds', type=int, default=None, 
                         help='Number of folds for cross-validation based on your csv file')
-    parser.add_argument('--seed', default=31, type=int, help='Random seed')
+    parser.add_argument('--seed', default=31, type=int, 
+                        help='Random seed')
 
     opt = parser.parse_args()
 
@@ -137,7 +136,7 @@ def parse_option():
         else:
             opt.warmup_to = opt.learning_rate
 
-    # add time to model name
+    # add time to model names
     opt.model_name += "_" + time.strftime("%Y_%m_%d-%H_%M_%S")
 
     opt.tb_folder = os.path.join(opt.tb_path, opt.model_name)

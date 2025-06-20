@@ -86,7 +86,7 @@ def config_qimname(cfg, i):
 def extract_features(model, data_loader, use_cuda=True, multiscale=False):
     metric_logger = util.MetricLogger(delimiter="  ")
     features = None
-    for samples, index in metric_logger.log_every(data_loader, 10):
+    for samples, index in metric_logger.log_every(data_loader, 1000):
         samples = samples.cuda(non_blocking=True)
         index = index.cuda(non_blocking=True)
         if multiscale:
@@ -121,18 +121,18 @@ class ModelConcatenate(nn.Module):
         return features
 
 
-def set_model(opt:str):
+def set_model(opt):
 
     # Set model
     if opt.arch == "vit_small" or opt.arch == "dino_vit_small_p_16":
         encoder = vits.SupConViT(name=opt.arch, feat_dim=384)
-        classifier = vits.LinearClassifierViT(name=opt.arch, num_classes=opt.n_cls)
+        # classifier = vits.LinearClassifierViT(name=opt.model, num_classes=opt.n_cls)
     elif opt.arch == "vit_base" or opt.arch == "dino_vit_base_p_16":
         encoder = vits.SupConViT(name=opt.arch, feat_dim=768)
-        classifier = vits.LinearClassifierViT(name=opt.arch, num_classes=opt.n_cls)
+        # classifier = vits.LinearClassifierViT(name=opt.model, num_classes=opt.n_cls)
     elif opt.arch == "resnet50": 
         encoder = resnets.SupConResNet(name=opt.arch)
-        classifier = resnets.LinearClassifier(name=opt.arch, num_classes=opt.n_cls)
+        # classifier = resnets.LinearClassifier(name=opt.model, num_classes=opt.n_cls)
     else:
         raise ValueError('Model not supported: {}'.format(opt.arch))
     
@@ -141,17 +141,16 @@ def set_model(opt:str):
         if torch.cuda.device_count() > 1:
             encoder = torch.nn.DataParallel(encoder)
         encoder = encoder.cuda()
-        classifier = classifier.cuda()
+        # classifier = classifier.cuda()
     
     state_dict_model = torch.load(opt.pretrained_weights, map_location="cpu", weights_only=False)["model"]
-    state_dict_cls = torch.load(opt.pretrained_weights, map_location="cpu", weights_only=False)["classifier"]
-    encoder.load_state_dict(state_dict_model, strict=True)
-    classifier.load_state_dict(state_dict_cls, strict=True)
+    # state_dict_cls = torch.load(opt.ckpt, map_location="cpu", weights_only=False)["classifier"]
+    encoder.load_state_dict(state_dict_model, strict=False)
+    # classifier.load_state_dict(state_dict_cls, strict=True)
     
-    # encoder.encoder.get_intermediate_layers = F
-    model = ModelConcatenate(encoder.encoder, classifier.fc)
+    # model = ModelConcatenate(encoder.encoder, classifier.fc)
     
-    return model
+    return encoder.encoder
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Image Retrieval on revisited Paris and Oxford')

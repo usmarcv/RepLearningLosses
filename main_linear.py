@@ -10,90 +10,91 @@ from pathlib import Path
 import torch
 import torch.backends.cudnn as cudnn
 
-from main_ce import set_loader
-from util import AverageMeter
+from util import AverageMeter, CustomDatasetFromCSV
 from util import adjust_learning_rate, warmup_learning_rate, accuracy, save_model, set_optimizer, fix_random_seeds
 from networks.resnet_big import SupConResNet, LinearClassifier
 import networks.vit as vits
-# from networks.dino_models import load_dino_model
-from torchvision.models import resnet50, ResNet50_Weights
-# from main_supcon import set_dataset, set_loader, train_holdout
 
-from util import TwoCropTransform, CustomDatasetFromCSV
 from torchvision import transforms
 from torch.utils.data import DataLoader
 
-
-import util
 
 
 def parse_option():
 
     parser = argparse.ArgumentParser('Arguments for training...')
     
-    parser.add_argument('--print_freq', type=int, default=50, help='print frequency')
-    parser.add_argument('--save_freq', type=int, default=25, help='save frequency')
-    parser.add_argument('--batch_size', type=int, default=32, help='batch_size')
-    parser.add_argument('--num_workers', type=int, default=8, help='num of workers to use')
-    parser.add_argument('--epochs', type=int, default=100, help='number of training epochs')
+    parser.add_argument('--print_freq', type=int, default=50, 
+                        help='print frequency')
+    parser.add_argument('--save_freq', type=int, default=50, 
+                        help='save frequency')
+    parser.add_argument('--batch_size', type=int, default=128, 
+                        help='batch_size')
+    parser.add_argument('--num_workers', type=int, default=16, 
+                        help='num of workers to use')
+    parser.add_argument('--epochs', type=int, default=100, 
+                        help='number of training epochs')
 
     # optimization
-    parser.add_argument('--learning_rate', type=float, default=0.0001, help='learning rate')
-    parser.add_argument('--lr_decay_epochs', type=str, default='20, 30, 40, 70', help='where to decay lr, can be a list')
-    parser.add_argument('--lr_decay_rate', type=float, default=0.1, help='decay rate for learning rate')
-    parser.add_argument('--weight_decay', type=float, default=1e-4, help='weight decay')
-    parser.add_argument('--momentum', type=float, default=0.9, help='momentum')
+    parser.add_argument('--learning_rate', type=float, default=0.0001, 
+                        help='learning rate')
+    parser.add_argument('--lr_decay_epochs', type=str, default='20, 30, 40, 70', 
+                        help='where to decay lr, can be a list')
+    parser.add_argument('--lr_decay_rate', type=float, default=0.1, 
+                        help='decay rate for learning rate')
+    parser.add_argument('--weight_decay', type=float, default=1e-4, 
+                        help='weight decay')
+    parser.add_argument('--momentum', type=float, default=0.9, 
+                        help='momentum')
 
     # model dataset
     # Aqui tem as alterações para o modelo e dataset // mexer aqui
     parser.add_argument('--model', type=str, default=None, choices=['resnet50', 
-                                                                          'vit_small', 'vit_base',
-                                                                          'dino_vit_small_p_16', 'dino_vit_small_p_8', 
-                                                                          'dino_vit_base_p_16', 'dino_vit_base_p_8'], 
+                                                                    'vit_small', 'vit_base',
+                                                                    'dino_vit_small_p_16', 'dino_vit_small_p_8', 
+                                                                    'dino_vit_base_p_16', 'dino_vit_base_p_8'], 
                         help='Choose your backbone')
-    parser.add_argument('--n_cls', type=int, default=10, help='number of classes') #For CIFAR10
-    parser.add_argument('--dataset', type=str, default='cifar10',
-                        choices=['cifar10', 'cifar100', 'imagenet100', 'imagenet', 'cifar2',
-                                 'aircraft', 'cars', 'food101', 'pet', 'dtd', 'flowers', 'path'],
-                        help='dataset')
-    parser.add_argument('--size', type=int, default=32, help='size of images after resizing')
-    parser.add_argument('--data_folder', type=str, default=None, help='path to custom dataset')
-
-    # parser.add_argument('--valid_split', type=float, default=0,
-    #                     help="proportion of train data to use for validation set")
-    # parser.add_argument('--mean', type=str,
-    #                     help='mean of dataset in path in form of str tuple')
-    # parser.add_argument('--std', type=str,
-    #                     help='std of dataset in path in form of str tuple')
-    # parser.add_argument('--valid_split', type=float, default=0,
-    #                     help="proportion of train data to use for validation set")
+    parser.add_argument('--n_cls', type=int, default=10, help='number of classes') 
+    parser.add_argument('--dataset', type=str, default=None,
+                        choices=['cifar10', 'cifar100', 'path'],
+                        help='Your dataset. Path option is your custom dataset with path.')
+    parser.add_argument('--size', type=int, default=224, 
+                        help='size of images after resizing')
+    parser.add_argument('--data_folder', type=str, default=None, 
+                        help='path to custom dataset')
 
     # other setting
-    parser.add_argument('--cosine', action='store_true', help='using cosine annealing')
-    parser.add_argument('--warm', action='store_true', help='warm-up for large batch training')
-    parser.add_argument('--ckpt', type=str, default='', help='path to pre-trained model')
+    parser.add_argument('--cosine', action='store_true', 
+                        help='using cosine annealing')
+    parser.add_argument('--warm', action='store_true', 
+                        help='warm-up for large batch training')
+    parser.add_argument('--ckpt', type=str, default='', 
+                        help='path to pre-trained model')
+    # parser.add_argument('--restore_ckpt', type=str, default='', 
+    #                     help='path to restore checkpoint')
 
 
     parser.add_argument('--root_path', type=str, default='', help='root path to dataset')
-    # We have used the cross-validation mode to search our hyperparameters
-    # parser.add_argument('--train_mode', type=str, default='holdout', 
-    #                     choices=['holdout', 'cross-validation', 'contrastive-mode'],
-    #                     help='Choose your training mode and set the csv file accordingly')
+    parser.add_argument('--train_mode', type=str, default=None, 
+                        choices=['holdout', 'cross-validation', 'contrastive-mode'], #We have used the cross-validation mode to search our hyperparameters
+                        help='Choose your training mode and set the csv file accordingly')
     
-    parser.add_argument('--train_file', type=str, default=None, help='csv file for training')
-    parser.add_argument('--val_file', type=str, default=None, help='csv file for validation')
-    parser.add_argument('--test_file', type=str, default=None, help='csv file for testing')
-    parser.add_argument('--num_folds', type=int, default=None, help='Number of folds for cross-validation based on your csv file')
-    parser.add_argument('--seed', default=31, type=int, help='Random seed')
+    parser.add_argument('--train_file', type=str, default=None, 
+                        help='csv file for training')
+    parser.add_argument('--val_file', type=str, default=None, 
+                        help='csv file for validation')
+    parser.add_argument('--test_file', type=str, default=None, 
+                        help='csv file for testing')
+    parser.add_argument('--num_folds', type=int, default=None, 
+                        help='Number of folds for cross-validation based on your csv file')
+    parser.add_argument('--seed', default=31, type=int, 
+                        help='Random seed')
 
     opt = parser.parse_args()
 
 
     # check if dataset is path that passed required arguments
     if opt.dataset == 'path':
-        # assert opt.data_folder is not None
-        # assert opt.mean is not None
-        # assert opt.std is not None
         assert opt.n_cls is not None
 
     # set the path according to the environment
@@ -105,10 +106,13 @@ def parse_option():
     for it in iterations:
         opt.lr_decay_epochs.append(int(it))
 
-    # get the method name used by the checkpoint by grabbing everything before first _ in folder name
+    # if opt.restore_ckpt is None:
+        # get the method name used by the checkpoint by grabbing everything before first _ in folder name
     ckpt_method = Path(opt.ckpt).parts[-2].partition("_")[0]
     opt.model_name = '{}_{}_{}_bsz_{}_lr_{}_size_{}'.\
-        format(opt.dataset, opt.model, ckpt_method, opt.batch_size, opt.learning_rate, opt.size)
+            format(opt.dataset, opt.model, ckpt_method, opt.batch_size, opt.learning_rate, opt.size)
+
+    opt.model_name += "_" + time.strftime("%Y_%m_%d-%H_%M_%S")
 
     if opt.cosine:
         opt.model_name = '{}_cosine'.format(opt.model_name)
@@ -125,32 +129,6 @@ def parse_option():
         else:
             opt.warmup_to = opt.learning_rate
 
-    if opt.dataset == 'cifar10':
-        opt.n_cls = 10
-    elif opt.dataset == 'cifar100':
-        opt.n_cls = 100
-    elif opt.dataset == 'cifar2':
-        opt.n_cls = 2
-    elif opt.dataset == 'imagenet100':
-        opt.n_cls = 100
-    elif opt.dataset == 'imagenet':
-        opt.n_cls = 1000
-    elif opt.dataset == 'aircraft':
-        opt.n_cls = 102
-    elif opt.dataset == 'cars':
-        opt.n_cls = 196
-    elif opt.dataset == 'food101':
-        opt.n_cls = 101
-    elif opt.dataset == 'pet':
-        opt.n_cls = 37
-    elif opt.dataset == 'dtd':
-        opt.n_cls = 47
-    elif opt.dataset == 'flowers':
-        opt.n_cls = 102
-    elif opt.dataset == 'path':
-        pass
-    else:
-        raise ValueError('dataset not supported: {}'.format(opt.dataset))
 
     opt.model_path = './save/Linear/{}_models'.format(opt.dataset)
     opt.save_folder = os.path.join(opt.model_path, opt.model_name)
@@ -256,24 +234,24 @@ def set_model(opt:str):
     criterion = torch.nn.CrossEntropyLoss()
 
     # Load the checkpoint if available (Basically, if we are using a pre-trained model or runned from Stage 1)
-    ckpt = torch.load(opt.ckpt, map_location='cpu', weights_only=False)
-    state_dict = ckpt['model']
+    if opt.ckpt:
+        ckpt = torch.load(opt.ckpt, map_location='cpu', weights_only=False)
+        state_dict = ckpt['model']
+        model.load_state_dict(state_dict)
 
     if torch.cuda.is_available():
         if torch.cuda.device_count() > 1:
             model.encoder = torch.nn.DataParallel(model.encoder)
-        else:
-            new_state_dict = {}
-            for k, v in state_dict.items():
-                k = k.replace("module.", "")
-                new_state_dict[k] = v
-            state_dict = new_state_dict
+        # else:
+            # new_state_dict = {}
+            # for k, v in state_dict.items():
+            #     k = k.replace("module.", "")
+            #     new_state_dict[k] = v
+            # state_dict = new_state_dict
         model = model.cuda()
         classifier = classifier.cuda()
         criterion = criterion.cuda()
         cudnn.benchmark = True
-
-        model.load_state_dict(state_dict)
 
     return model, classifier, criterion
 
@@ -378,9 +356,6 @@ def validate(val_loader, model, classifier, criterion, opt):
                         idx, len(val_loader), batch_time=batch_time,
                         loss=losses, top1=top1))
 
-    #print(f"\tValid Loss: {loss.val:4f}")
-    #print(f"\tValid Top 1 Accuracy: {top1.avg:.3f}")
-    #print(f"\tValid Top 5 Accuracy: {top5.avg:.3f}")
 
     print('\t[INFO] * Average validation: Acc@1 {top1.avg:.3f} | Acc@5 {top5.avg:.3f}'.format(top1=top1, top5=top5))
 
@@ -490,13 +465,13 @@ def main():
     
     # ---------- RESTAURAR CHECKPOINT (opcional) ----------
     start_epoch = 1
-    checkpoint_path = os.path.join(opt.ckpt, 'last.pth')
+    checkpoint_path = os.path.join(opt.restore_ckpt, 'last.pth')
     if os.path.exists(checkpoint_path):
         print(f"[INFO] Checkpoint encontrado em {checkpoint_path}. Restaurando...")
-        checkpoint = torch.load(checkpoint_path, map_location=opt.device)
+        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
 
         model.load_state_dict(checkpoint['model'])
-        classifier.load_state_dict(checkpoint['classifier'])
+        # classifier.load_state_dict(checkpoint['classifier'])
         optimizer.load_state_dict(checkpoint['optimizer'])
         opt = checkpoint['opt']
         start_epoch = checkpoint['epoch'] + 1  # Continua da próxima época
