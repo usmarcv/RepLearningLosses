@@ -112,6 +112,7 @@ def parse_option():
     opt.model_name = '{}_{}_{}_bsz_{}_lr_{}_size_{}'.\
             format(opt.dataset, opt.model, ckpt_method, opt.batch_size, opt.learning_rate, opt.size)
 
+    # add time to model names
     opt.model_name += "_" + time.strftime("%Y_%m_%d-%H_%M_%S")
 
     if opt.cosine:
