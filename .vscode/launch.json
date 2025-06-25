@@ -63,6 +63,7 @@
 //     ]
 // }
 
+// python eval_knn.py --arch dino_vit_small_p_16 n_cls 40 --train_file Datasets/train_M40.csv --test_file Datasets/test_M40.csv --pretrained_weights save/Linear/path_models/path_dino_vit_small_p_16_EpsSupInfoNCE_bsz_128_lr_0.0001_size_224/last.pth
 
 
 // //FOR eval retrieval
@@ -93,6 +94,7 @@
 //     ]
 // }
 
+// python3 eval_image_retrieval.py --arch dino_vit_small_p_16 --n_cls 40 --dataset roxford5k --pretrained_weights save/Linear/path_models/path_dino_vit_small_p_16_EpsSupInfoNCE_bsz_128_lr_0.0001_size_224/last.pth
 
 
 
@@ -132,45 +134,45 @@
 
 
 
-// //TSNE
-{
-    // Use o IntelliSense para saber mais sobre os atributos possíveis.
-    // Focalizar para exibir as descrições dos atributos existentes.
-    // Para obter mais informações, acesse: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-        {   
-            //Rodando stage1
-            //Testando vit_small para adaptar em dinov1 (stage) com a dinohead utilizando a simclr
-            "name": "Depurador do Python: tsne.py",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/tsne.py",
-            "console": "integratedTerminal",
-            // "args": [
-            //     "--batch_size", "4",
-            //     "--size", "224",
-            //     "--epochs", "5",
-            //     "--model", "dinov2_vit_base_p_14",
-            //     "--train_mode", "cross-validation",
-            //     "--num_folds","4",
-            //     "--root_path", "",
-            //     "--train_file", "Datasets/train_new_subfold.csv",
-            //     "--num_folds", "4",
-            //     "--learning_rate", "0.001",
-            //     "--dataset", "path",
-            //     "--method", "SINCERE",
-            //     "--num_workers", "4", //notebook dell = 4
-            //     "--warm",
-            //     "--cosine"
-            // ],
-            "justMyCode": false
-        }
-    ]
-}
-
-
+// // //TSNE
 // {
+//     // Use o IntelliSense para saber mais sobre os atributos possíveis.
+//     // Focalizar para exibir as descrições dos atributos existentes.
+//     // Para obter mais informações, acesse: https://go.microsoft.com/fwlink/?linkid=830387
+//     "version": "0.2.0",
+//     "configurations": [
+//         {   
+//             //Rodando stage1
+//             //Testando vit_small para adaptar em dinov1 (stage) com a dinohead utilizando a simclr
+//             "name": "Depurador do Python: tsne.py",
+//             "type": "debugpy",
+//             "request": "launch",
+//             "program": "${workspaceFolder}/tsne.py",
+//             "console": "integratedTerminal",
+//             // "args": [
+//             //     "--batch_size", "4",
+//             //     "--size", "224",
+//             //     "--epochs", "5",
+//             //     "--model", "dinov2_vit_base_p_14",
+//             //     "--train_mode", "cross-validation",
+//             //     "--num_folds","4",
+//             //     "--root_path", "",
+//             //     "--train_file", "Datasets/train_new_subfold.csv",
+//             //     "--num_folds", "4",
+//             //     "--learning_rate", "0.001",
+//             //     "--dataset", "path",
+//             //     "--method", "SINCERE",
+//             //     "--num_workers", "4", //notebook dell = 4
+//             //     "--warm",
+//             //     "--cosine"
+//             // ],
+//             "justMyCode": false
+//         }
+//     ]
+// }
+
+
+// // {
 //     // Use o IntelliSense para saber mais sobre os atributos possíveis.
 //     // Focalizar para exibir as descrições dos atributos existentes.
 //     // Para obter mais informações, acesse: https://go.microsoft.com/fwlink/?linkid=830387
@@ -205,38 +207,38 @@
 //     ]
 // }
 
-// {
-//     // Use o IntelliSense para saber mais sobre os atributos possíveis.
-//     // Focalizar para exibir as descrições dos atributos existentes.
-//     // Para obter mais informações, acesse: https://go.microsoft.com/fwlink/?linkid=830387
-//     "version": "0.2.0",
-//     "configurations": [
-//         {   
-//             //Rodando stage1
-//             //Testando vit_small para adaptar em dinov1 (stage) com a dinohead utilizando a simclr
-//             "name": "Depurador do Python: main_linear.py",
-//             "type": "debugpy",
-//             "request": "launch",
-//             "program": "${workspaceFolder}/main_linear.py",
-//             "console": "integratedTerminal",
-//             "args": [
-//                 "--batch_size", "128",
-//                 "--size", "128",
-//                 "--epochs", "20",
-//                 "--model", "vit_small",
-//                 "--root_path", "",
-//                 "--train_file", "Datasets/train.csv",
-//                 // "--val_file", "Datasets/KFolds/SKF_VAL_Fold_1.csv",
-//                 "--test_file", "Datasets/test.csv",
-//                 "--learning_rate", "0.0001",
-//                 "--dataset", "path",
-//                 "--num_workers", "8", //notebook dell = 4
-//                 "--ckpt", "inferencetestsib/path_vit_small_SINCERE_bsz_128_lr_0.0001_size_224_temp_0.07_wdecay_0.0001_trial_0_cosine_2025_05_08-16_14_19/last.pth",
-//             ],
-//             "justMyCode": false
-//         }
-//     ]
-// }
+{
+    // Use o IntelliSense para saber mais sobre os atributos possíveis.
+    // Focalizar para exibir as descrições dos atributos existentes.
+    // Para obter mais informações, acesse: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {   
+            //Rodando stage1
+            //Testando vit_small para adaptar em dinov1 (stage) com a dinohead utilizando a simclr
+            "name": "Depurador do Python: main_linear.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/main_linear.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--batch_size", "128",
+                "--size", "128",
+                "--epochs", "10",
+                "--model", "vit_small",
+                "--root_path", "",
+                "--train_file", "Datasets/train.csv",
+                // "--val_file", "Datasets/KFolds/SKF_VAL_Fold_1.csv",
+                "--test_file", "Datasets/test.csv",
+                "--learning_rate", "0.0001",
+                "--dataset", "path",
+                "--num_workers", "8", //notebook dell = 4
+                "--ckpt", "inferencetestsib/path_vit_small_SINCERE_bsz_128_lr_0.0001_size_224_temp_0.07_wdecay_0.0001_trial_0_cosine_2025_05_08-16_14_19/last.pth",
+            ],
+            "justMyCode": false
+        }
+    ]
+}
 
 
 
