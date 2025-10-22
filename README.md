@@ -44,7 +44,7 @@ Our approach is built using the awesome [SupCon](https://github.com/HobbitLong/S
 
 ## Citation
 ```bib
-  @inproceedings{Author2026,
+  @inproceedings{AuthorAndDateHere,
   
   }
 ```
