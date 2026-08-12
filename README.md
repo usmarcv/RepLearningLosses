@@ -105,8 +105,8 @@ python tsne.py
 
 ## Batch / sweep scripts
 
-`bash_scripts/*.sh` and the root `run_*.sh` files wrap the commands above as loops/sweeps across models and losses (e.g. `run_ContrastiveMode.sh`, `run_LinearEvalMode_*.sh` via `run_LinearMaster.sh`, `run_eval_knn.sh`, `run_image_retrieval.sh`, `run_inferences.sh`). Update the hardcoded checkpoint paths inside a script, then run it directly:
+`scripts/*.sh` wraps the commands above as loops/sweeps across models and losses (e.g. `run_ContrastiveMode.sh`, `run_LinearEvalMode_*.sh` via `run_LinearMaster.sh`, `run_eval_knn.sh`, `run_image_retrieval.sh`, `run_inferences.sh`). Run these from the repo root (not from inside `scripts/`) since they reference `Datasets/`, `save/`, etc. relative to the root. Update the hardcoded checkpoint paths inside a script, then run it directly:
 
 ```
-bash bash_scripts/run_ContrastiveMode.sh
+bash scripts/run_ContrastiveMode.sh
 ```
