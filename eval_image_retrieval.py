@@ -157,26 +157,27 @@ if __name__ == '__main__':
     parser.add_argument('--data_path', default='Datasets', type=str)
     parser.add_argument('--dataset', default='rparis6k', type=str, choices=['roxford5k', 'rparis6k'])
     parser.add_argument('--multiscale', default=False, type=util.bool_flag)
-    parser.add_argument('--imsize', default=224, type=int, help='Image size')
+    parser.add_argument('--imsize', default=512, type=int, help='Image size')
     parser.add_argument('--pretrained_weights', default='', type=str, help="Path to pretrained weights to evaluate.")
     parser.add_argument('--use_cuda', default=False, type=util.bool_flag)
     parser.add_argument('--arch', default='vit_small', type=str, help='Architecture')
     # parser.add_argument('--patch_size', default=16, type=int, help='Patch resolution of the model.')
     # parser.add_argument("--checkpoint_key", default="teacher", type=str,
     #     help='Key to use in the checkpoint (example: "teacher")')
-    parser.add_argument('--num_workers', default=10, type=int, help='Number of data loading workers per GPU.')
+    parser.add_argument('--num_workers', default=16, type=int, help='Number of data loading workers per GPU.')
     # parser.add_argument("--dist_url", default="env://", type=str, help="""url used to set up
     #     distributed training; see https://pytorch.org/docs/stable/distributed.html""")
     # parser.add_argument("--local_rank", default=0, type=int, help="Please ignore and do not set this argument.")
-    parser.add_argument('--n_cls', type=int, default=10, help='number of classes') #For CIFAR10
-
+    #parser.add_argument('--n_cls', type=int, default=10, help='number of classes') #For CIFAR10
+    parser.add_argument('--seed', default=31, type=int,    help='Random seed')
     args = parser.parse_args()
 
+    util.fix_random_seeds(args.seed)
     # utils.init_distributed_mode(args)
     # print("git:\n  {}\n".format(utils.get_sha()))
     print("\n".join("%s: %s" % (k, str(v)) for k, v in sorted(dict(vars(args)).items())))
     cudnn.benchmark = True
-
+    
     # ============ preparing data ... ============
     transform = pth_transforms.Compose([
         pth_transforms.ToTensor(),

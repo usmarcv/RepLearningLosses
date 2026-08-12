@@ -18,9 +18,13 @@ import sampler
 from util import AverageMeter, DoubleTransform, SubsetWithTargets, TwoCropTransform, CustomDatasetFromCSV
 from util import adjust_learning_rate, warmup_learning_rate, accuracy, set_optimizer, save_model, fix_random_seeds
 
+from networks.pretrained_models import load_pretrained_model
 
-import networks.vit as vits
-from networks.resnet_big import SupCEResNet
+
+__all_models = ['resnet50', 
+                'vit_small', 'vit_base', 
+                'dino_vit_small_p_16', 'dino_vit_small_p_8', 'dino_vit_base_p_16', 'dino_vit_base_p_8',
+                'dinov2_vit_small_p_14', 'dinov2_vit_base_p_14']
 
 
 def parse_option():
@@ -52,13 +56,13 @@ def parse_option():
     
 
     parser.add_argument('--root_path', type=str, default='', help='root path to dataset')
-    parser.add_argument('--train_mode', type=str, default='holdout', 
+    parser.add_argument('--train_mode', type=str, default=None, 
                         choices=['holdout', 'cross-validation', 'contrastive-mode'],
                         help='Choose your training mode and set the csv file accordingly')
     
-    parser.add_argument('--train_file', type=str, default='Datasets/KFolds/SKF_TRAIN_Fold_1.csv', help='csv file for training')
-    parser.add_argument('--val_file', type=str, default='Datasets/KFolds/SKF_VAL_Fold_1.csv', help='csv file for validation')
-    parser.add_argument('--test_file', type=str, default='Datasets/test.csv', help='csv file for testing')
+    parser.add_argument('--train_file', type=str, default=None, help='csv file for training')
+    parser.add_argument('--val_file', type=str, default=None, help='csv file for validation')
+    parser.add_argument('--test_file', type=str, default=None, help='csv file for testing')
     parser.add_argument('--num_folds', type=int, default=None, help='Number of folds for cross-validation based on your csv file')
         
 
@@ -316,15 +320,11 @@ def set_model(opt:str):
 
     print('\n[INFO] Setting model and criterion with linear classifier...')
 
-    # Set model
-    if opt.model == "vit_small" or opt.model == "dino_vit_small_p_16" or opt.model == 'dino_vit_small_p_8': #não ta funcionando ainda
-        model = vits.SupCEViT(name=opt.model, feat_dim=384)
-    elif opt.model == "vit_base" or opt.model == "dino_vit_base_p_16" or opt.model == 'dino_vit_base_p_8':
-        model = vits.SupCEViT(name=opt.model, feat_dim=768)
-    elif opt.model == "resnet50": #If model is resnet
-        model = SupCEResNet(name=opt.model)
-    else:
-        raise ValueError('Model not supported: {}'.format(opt.model))
+    # Set the model
+    model = None
+
+    if opt.model in __all_models:
+        model = load_pretrained_model(opt.model)
     
     criterion = torch.nn.CrossEntropyLoss()
 
@@ -532,10 +532,7 @@ def main():
     opt = parse_option()
 
     # build data loader
-    if opt.val_file is None:
-        train_loader, _, test_loader = set_loader(opt, contrast_trans=False, for_test=True)
-    else:
-        train_loader, val_loader, test_loader = set_loader(opt, contrast_trans=False, for_test=True)
+    train_loader, _, test_loader = set_loader(opt, contrast_trans=False, for_test=True)
 
     # build model and criterion
     model, criterion = set_model(opt)
@@ -564,13 +561,13 @@ def main():
         logger.log_value('learning_rate', optimizer.param_groups[0]['lr'], epoch)
 
         # evaluation
-        if val_loader is not None:
-            loss, val_acc = validate(val_loader, model, criterion, opt)
-            logger.log_value('val_loss', loss, epoch)
-            logger.log_value('val_acc', val_acc, epoch)   
+       # if val_loader is not None:
+        #    loss, val_acc = validate(val_loader, model, criterion, opt)
+        #    logger.log_value('val_loss', loss, epoch)
+        #    logger.log_value('val_acc', val_acc, epoch)   
 
-        if val_acc > best_acc:
-            best_acc = val_acc
+       # if val_acc > best_acc:
+       #     best_acc = val_acc
 
         if epoch % opt.save_freq == 0:
             save_file = os.path.join(
@@ -594,3 +591,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

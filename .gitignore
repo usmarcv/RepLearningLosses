@@ -13,6 +13,7 @@ figures/
 #chekpoints torch and tensorboard
 *.pth
 *.0
+*.jpg
 
 #nohup outputs
 *.txt
