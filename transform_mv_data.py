@@ -40,3 +40,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     generate_csv(args.root_dir, args.split, args.output_csv)
+
