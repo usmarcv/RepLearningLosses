@@ -1,11 +1,19 @@
-This part of the repo is based on:
-- https://github.com/HobbitLong/SupContrast
-- https://github.com/tufts-ml/SupContrast
-- https://github.com/EIDOSLAB/unbiased-contrastive-learning
 
 ## Setup
 
-> git clone this repo
+## Installation
+```shell
+ git clone this repo
+```
+```shell
+pip install pipenv
+```
+```shell
+pipenv shell
+```
+```shell
+pipenv sync
+```
 
 > pip install pipenv
 
@@ -109,4 +117,14 @@ python tsne.py
 
 ```
 bash scripts/run_ContrastiveMode.sh
+```
+
+## Acknowledgement
+Our approach is built using the awesome [SupCon](https://github.com/HobbitLong/SupContrast), [SINCERE](https://github.com/tufts-ml/SupContrast), [ϵ-SupInfoNCE](https://github.com/EIDOSLAB/unbiased-contrastive-learning), and [DINOv1](https://github.com/facebookresearch/dino).
+
+## Citation
+```bib
+  @inproceedings{TestingAuthor,
+  
+  }
 ```

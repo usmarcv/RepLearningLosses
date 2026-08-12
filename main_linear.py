@@ -462,8 +462,7 @@ def main():
     model, classifier, criterion = set_model(opt)
 
     # build optimizer
-    optimizer = set_optimizer(opt, classifier)\
-    
+    optimizer = set_optimizer(opt, classifier)
 
     # training routine
     print('\n[INFO] Training model with stage two...')

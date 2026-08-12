@@ -593,12 +593,12 @@ def train_holdout(opt):
         if epoch % opt.save_freq == 0:
             save_file = os.path.join(
                 opt.save_folder, 'ckpt_epoch_{epoch}.pth'.format(epoch=epoch))
-            save_model(model, optimizer, opt, epoch, save_file)
+            save_model(model, None, optimizer, opt, epoch, save_file)
 
     # Save the last model
     save_file = os.path.join(
         opt.save_folder, 'last.pth')
-    save_model(model, optimizer, opt, opt.epochs, save_file)
+    save_model(model, None, optimizer, opt, opt.epochs, save_file)
 
 
 #Cross-validation mode
@@ -664,7 +664,7 @@ def train_folds(opt):
             # Salvar checkpoints periódicos
             if epoch % opt.save_freq == 0:
                 save_file = os.path.join(opt.save_folder, f'ckpt_fold_{fold}_epoch_{epoch}.pth')
-                save_model(model, optimizer, opt, epoch, save_file)
+                save_model(model, None, optimizer, opt, epoch, save_file)
 
         accs_train.append(fold_acc_train.avg)
         losses_train.append(fold_losses_train.avg)
@@ -682,7 +682,7 @@ def train_folds(opt):
 
         # Salvar o último modelo deste fold
         save_file = os.path.join(opt.save_folder, f'last_fold_{fold}.pth')
-        save_model(model, optimizer, opt, opt.epochs, save_file)
+        save_model(model, None, optimizer, opt, opt.epochs, save_file)
 
  
     mean_accuracy_train = np.mean(accs_train)
@@ -751,12 +751,12 @@ def train_contrastive(opt):
         if epoch % opt.save_freq == 0:
             save_file = os.path.join(
                 opt.save_folder, 'ckpt_epoch_{epoch}.pth'.format(epoch=epoch))
-            save_model(model, optimizer, opt, epoch, save_file)
+            save_model(model, None, optimizer, opt, epoch, save_file)
 
     # Save the last model
     save_file = os.path.join(
         opt.save_folder, 'last.pth')
-    save_model(model, optimizer, opt, opt.epochs, save_file)
+    save_model(model, None, optimizer, opt, opt.epochs, save_file)
 
 
 def main(opt):
