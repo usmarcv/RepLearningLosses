@@ -26,7 +26,7 @@ Valid `--model` / `--arch` values (shared across scripts):
 Valid `--method` values for contrastive pretraining (`main_supcon.py` only):
 `SINCERE`, `SupCon`, `EpsSupInfoNCE`, `SimCLR`, `InfoNCE`
 
-## Pipeline
+## Running
 
 Checkpoints flow between stages: `main_supcon.py` → `last.pth` feeds `--ckpt` of `main_linear.py` → its `last.pth` feeds `--pretrained_weights`/`--ckpt` of `eval_knn.py`, `eval_image_retrieval.py`, and `inferences.py`.
 
