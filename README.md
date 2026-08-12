@@ -3,25 +3,19 @@
 
 ## Installation
 ```shell
- git clone this repo
+git clone this repo
+```
+
+Build and run the provided `Dockerfile` (PyTorch 2.5.0 + CUDA 12.4 base image):
+
+```shell
+docker build -t replearninglosses .
 ```
 ```shell
-pip install pipenv
-```
-```shell
-pipenv shell
-```
-```shell
-pipenv sync
+docker run --gpus all -it -v $(pwd):/root replearninglosses
 ```
 
-> pip install pipenv
-
-> pipenv shell
-
-> pipenv sync
-
-All commands below assume the `pipenv shell` is active (nothing wraps them in `pipenv run` except where noted).
+All commands below assume you're inside the container (or an equivalent environment with the dependencies installed).
 
 ## Model / method names
 
