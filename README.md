@@ -48,7 +48,7 @@ python main_supcon.py --batch_size 128 --size 224 --model resnet50 \
 
 Saves to `save/Contrastive/<method>/path_models/<model_name>/last.pth`.
 
-### 3. (Alternative) Supervised cross-entropy baseline
+### 3. Standard Cross-Entropy
 
 ```
 python main_ce.py --batch_size 128 --learning_rate 0.0001 --epochs 100 --n_cls 40 \
