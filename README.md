@@ -1,3 +1,6 @@
+<p align="center">
+<h1>ViTs Meet Contrastive Learning for Enhanced Multi-view 3D Shape Features</h1>
+</p>
 
 ## Setup
 
